@@ -8359,9 +8359,20 @@ namespace EGIS.ShapeFileLib
                                                     }
                                                 }
 												if (drawArrows && paintCount == (maxPaintCount-1))
-												{
-													DrawDirectionArrows(pointList, arrowLength, arrowPen, g);
-												}
+                                                {
+                                                    if (useCustomRenderSettings)
+                                                    {
+                                                        int len = arrowLength * customRenderSettings.GetDirection(index);
+                                                        if (len != 0)
+                                                        {
+                                                            DrawDirectionArrows(pointList, len, arrowPen, g);
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        DrawDirectionArrows(pointList, arrowLength, arrowPen, g);
+                                                    }
+                                                }
                                             }
                                         }
                                     }                                   
@@ -9576,7 +9587,18 @@ namespace EGIS.ShapeFileLib
 
 											if (drawArrows && paintCount == (maxPaintCount - 1))
 											{
-												DrawDirectionArrows(pointList, arrowLength, arrowPen, g);
+                                                if (useCustomRenderSettings)
+                                                {
+                                                    int len = arrowLength * customRenderSettings.GetDirection(index);
+                                                    if (len != 0)
+                                                    {
+                                                        DrawDirectionArrows(pointList, len, arrowPen, g);
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    DrawDirectionArrows(pointList, arrowLength, arrowPen, g);
+                                                }
 											}
 										}
                                     }
@@ -11831,9 +11853,20 @@ namespace EGIS.ShapeFileLib
 												}
 
 												if (drawArrows && paintCount == (maxPaintCount - 1))
-												{
-													DrawDirectionArrows(pointList, arrowLength, arrowPen, g);
-												}
+                                                {
+                                                    if (useCustomRenderSettings)
+                                                    {
+                                                        int len = arrowLength * customRenderSettings.GetDirection(index);
+                                                        if (len != 0)
+                                                        {
+                                                            DrawDirectionArrows(pointList, len, arrowPen, g);
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        DrawDirectionArrows(pointList, arrowLength, arrowPen, g);
+                                                    }
+                                                }
 
 											}
                                         }
