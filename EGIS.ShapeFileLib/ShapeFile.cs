@@ -13195,8 +13195,9 @@ namespace EGIS.ShapeFileLib
     /// A DBF Reader class, providing direct access to record data within a DBF file, with low memory useage.    
     /// </summary>
     public sealed class DbfReader : IDisposable
-	{
-		private DbfFileHeader dBFRecordHeader;
+    {
+        private object _Lock;
+        private DbfFileHeader dBFRecordHeader;
 		private Stream dbfFileStream;
         private const int FileBufSize = 1024*8;//dont set buffer size too high as performance will suffer;
 
@@ -13209,13 +13210,15 @@ namespace EGIS.ShapeFileLib
         /// <param name="filePath"> The path to the DBF file. If the file extension contained in fileName is not included then ".dbf" will be appended to the file path
         /// before it is opened</param>
 		public DbfReader(string filePath)
-		{
+        {
+            _Lock = new object();
+
             //Console.Out.WriteLine("string encoding: " + stringEncoding);
             //Console.Out.WriteLine(string.Format("string encoding: {0}[{1}]", stringEncoding.EncodingName, stringEncoding.CodePage));
-            
 
-			try
-			{
+
+            try
+            {
                 if (filePath.EndsWith(".shp", StringComparison.OrdinalIgnoreCase))
                 {
                     filePath = System.IO.Path.ChangeExtension(filePath, "dbf");
@@ -13224,9 +13227,12 @@ namespace EGIS.ShapeFileLib
                 {
                     filePath += ".dbf";
                 }
-                dbfFileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, FileBufSize);				
-				dBFRecordHeader = new DbfFileHeader();
-				dBFRecordHeader.Read(dbfFileStream);
+                lock (_Lock)
+                {
+                    dbfFileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, FileBufSize);
+                    dBFRecordHeader = new DbfFileHeader();
+                    dBFRecordHeader.Read(dbfFileStream);
+                }
                 try
                 {
                     int codePage = LD_CP_LU[dBFRecordHeader.LDID].codepage;
@@ -13323,10 +13329,14 @@ namespace EGIS.ShapeFileLib
             }
 			
 			long FieldOffset = this.dBFRecordHeader.HeaderLength + this.dBFRecordHeader.RecordLength*(long)recordNumber + this.dBFRecordHeader.GetFieldDescriptions()[fieldIndex].RecordOffset;
-			//string strField;
-			dbfFileStream.Seek(FieldOffset,SeekOrigin.Begin);
-			byte[] data = new byte[this.dBFRecordHeader.GetFieldDescriptions()[fieldIndex].FieldLength];
-			dbfFileStream.Read(data,0,data.Length);
+            //string strField;
+            byte[] data;
+            lock (_Lock)
+            {
+                dbfFileStream.Seek(FieldOffset, SeekOrigin.Begin);
+                data = new byte[this.dBFRecordHeader.GetFieldDescriptions()[fieldIndex].FieldLength];
+                dbfFileStream.Read(data, 0, data.Length);
+            }
             //foreach (System.Text.EncodingInfo info in System.Text.Encoding.GetEncodings())
             //{
             //    Console.Out.WriteLine(info.DisplayName + "["+info.CodePage+"]");
@@ -13381,10 +13391,14 @@ namespace EGIS.ShapeFileLib
             //{
             //    Console.Out.WriteLine("record Number:" + recordNumber);
             //}
-            dbfFileStream.Seek(RecordOffset,SeekOrigin.Begin);
-			byte[] data = new byte[this.dBFRecordHeader.RecordLength];
-            
-			dbfFileStream.Read(data,0,data.Length);
+            byte[] data;
+            lock (_Lock)
+            {
+                dbfFileStream.Seek(RecordOffset, SeekOrigin.Begin);
+                data = new byte[this.dBFRecordHeader.RecordLength];
+
+                dbfFileStream.Read(data, 0, data.Length);
+            }
             //fixed(byte* bPtr = data)
             //{				
             //    sbyte* sbPtr = (sbyte*)bPtr;
@@ -13437,23 +13451,26 @@ namespace EGIS.ShapeFileLib
             long FieldOffset = this.dBFRecordHeader.HeaderLength + this.dBFRecordHeader.GetFieldDescriptions()[fieldIndex].RecordOffset;
             
             int fieldLength = this.dBFRecordHeader.GetFieldDescriptions()[fieldIndex].FieldLength;
-            dbfFileStream.Seek(FieldOffset, SeekOrigin.Begin);
-            byte[] data = new byte[this.dBFRecordHeader.RecordLength];
-                        
-            for (int n = 0; n < numRecs; n++)
+            lock (_Lock)
             {
-                string s;
-                dbfFileStream.Read(data, 0, data.Length);
-                //fixed (byte* bPtr = data)
-                //{
-                //    s = new String((sbyte*)(bPtr),0,fieldLength);
-                //}
-                s = this.stringEncoding.GetString(data, 0, fieldLength);
-                s = s.Trim();
-                if (!d.ContainsKey(s))
+                dbfFileStream.Seek(FieldOffset, SeekOrigin.Begin);
+                byte[] data = new byte[this.dBFRecordHeader.RecordLength];
+
+                for (int n = 0; n < numRecs; n++)
                 {
-                    d.Add(s, 0);
-                    records.Add(s);
+                    string s;
+                    dbfFileStream.Read(data, 0, data.Length);
+                    //fixed (byte* bPtr = data)
+                    //{
+                    //    s = new String((sbyte*)(bPtr),0,fieldLength);
+                    //}
+                    s = this.stringEncoding.GetString(data, 0, fieldLength);
+                    s = s.Trim();
+                    if (!d.ContainsKey(s))
+                    {
+                        d.Add(s, 0);
+                        records.Add(s);
+                    }
                 }
             }
             return records.ToArray();
@@ -13496,11 +13513,14 @@ namespace EGIS.ShapeFileLib
         /// After this method has been called any attempt to read a field or record data from the DbfReader will throw an Exception
         /// </summary>
         public void Close()
-		{
-			if (dbfFileStream != null)
-			{
-				dbfFileStream.Close();
-			}
+        {
+            lock (_Lock)
+            {
+                if (dbfFileStream != null)
+                {
+                    dbfFileStream.Close();
+                }
+            }
 		}
 
         /// <summary>
