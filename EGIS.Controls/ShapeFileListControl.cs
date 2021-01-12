@@ -59,6 +59,12 @@ namespace EGIS.Controls
         #region events
 
         /// <summary>
+        /// Subscribe to this event to be able to modify the ShapeFileListControl context menu
+        /// </summary>
+        [Bindable(true), Description("Subscribe to this event to be able to modify the ShapeFileListControl context menu")]
+        public event EventHandler<ContextMenuBuilderEventArgs> ContextMenuBuilder;
+
+        /// <summary>
         /// Selected ShapeFile Changed event
         /// </summary>
         public event EventHandler<EventArgs> SelectedShapeFileChanged;
@@ -231,9 +237,30 @@ namespace EGIS.Controls
 
         private void layerContextMenu_Opening(object sender, CancelEventArgs e)
         {
-            miRemoveLayer.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
-            zoomToLayerToolStripMenuItem.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
-            zoomToLayerToolStripMenuItem.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;    
+            ContextMenuStrip menuStrip = sender as ContextMenuStrip;
+
+            menuStrip.Items.Clear();
+
+            ToolStripMenuItem item = new ToolStripMenuItem(Properties.Resources.AddLayer);
+            item.Click += addLayerToolStripMenuItem_Click;
+            menuStrip.Items.Add(item);
+            item = new ToolStripMenuItem(Properties.Resources.RemoveLayer);
+            item.Click += miRemoveLayer_Click;
+            item.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
+            menuStrip.Items.Add(item);
+            item = new ToolStripMenuItem(Properties.Resources.ZoomToLayer);
+            item.Click += zoomToLayerToolStripMenuItem_Click;
+            item.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
+            menuStrip.Items.Add(item);
+            item = new ToolStripMenuItem(Properties.Resources.ZoomToSelection);
+            item.Click += zoomToSelectionToolStripMenuItem_Click;
+            item.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
+            menuStrip.Items.Add(item);
+
+            if (ContextMenuBuilder != null)
+            {
+                ContextMenuBuilder(this, new ContextMenuBuilderEventArgs(menuStrip));
+            }
         }
 
         private void miRemoveLayer_Click(object sender, EventArgs e)
@@ -260,5 +287,15 @@ namespace EGIS.Controls
             }
 
         }
+    }
+
+    public class ContextMenuBuilderEventArgs : EventArgs
+    {
+        public ContextMenuBuilderEventArgs(ContextMenuStrip menuStrip)
+        {
+            MenuStrip = menuStrip;
+        }
+
+        public ContextMenuStrip MenuStrip { get; set; }
     }
 }
