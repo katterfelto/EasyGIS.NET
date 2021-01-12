@@ -58,11 +58,11 @@ namespace EGIS.Controls
 
         #region events
 
-        /// <summary>
-        /// Subscribe to this event to be able to modify the ShapeFileListControl context menu
-        /// </summary>
-        [Bindable(true), Description("Subscribe to this event to be able to modify the ShapeFileListControl context menu")]
-        public event EventHandler<ContextMenuBuilderEventArgs> ContextMenuBuilder;
+        public event EventHandler<IndexChangedEventArgs> LayerMovedUp;
+
+        public event EventHandler<IndexChangedEventArgs> LayerMovedDown;
+
+        public event EventHandler<IndexChangedEventArgs> LayerRemoved;
 
         /// <summary>
         /// Selected ShapeFile Changed event
@@ -101,9 +101,16 @@ namespace EGIS.Controls
         {
             if (_map != null && lstShapefiles.SelectedItem != null)
             {
+                int oldIndex = lstShapefiles.SelectedIndex;
+
                 EGIS.ShapeFileLib.ShapeFile sf = lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile;
                 _map.MoveShapeFileUp(lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile);
                 lstShapefiles.SelectedItem = sf;
+
+                if (LayerMovedUp != null)
+                {
+                    LayerMovedUp(this, new IndexChangedEventArgs(oldIndex, oldIndex++));
+                }
             }
         }
 
@@ -111,9 +118,16 @@ namespace EGIS.Controls
         {
             if (_map != null && lstShapefiles.SelectedItem != null)
             {
+                int oldIndex = lstShapefiles.SelectedIndex;
+
                 EGIS.ShapeFileLib.ShapeFile sf = lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile;
                 _map.MoveShapeFileDown(lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile);
                 lstShapefiles.SelectedItem = sf;
+
+                if (LayerMovedDown != null)
+                {
+                    LayerMovedDown(this, new IndexChangedEventArgs(oldIndex, oldIndex--));
+                }
             }
 
         }
@@ -124,11 +138,18 @@ namespace EGIS.Controls
             {
                 if (MessageBox.Show(this, "Remove Layer " + lstShapefiles.SelectedItem.ToString() + "?", "Confirm Layer Removal", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question) == DialogResult.Yes)
                 {
+                    int oldIndex = lstShapefiles.SelectedIndex;
+
                     EGIS.ShapeFileLib.ShapeFile sf = lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile;
 
                     _map.RemoveShapeFile(sf);
                     sf.Close();
 					System.GC.Collect();
+
+                    if (LayerRemoved != null)
+                    {
+                        LayerRemoved(this, new IndexChangedEventArgs(oldIndex, -1));
+                    }
                 }
             }
         }
@@ -237,30 +258,9 @@ namespace EGIS.Controls
 
         private void layerContextMenu_Opening(object sender, CancelEventArgs e)
         {
-            ContextMenuStrip menuStrip = sender as ContextMenuStrip;
-
-            menuStrip.Items.Clear();
-
-            ToolStripMenuItem item = new ToolStripMenuItem(Properties.Resources.AddLayer);
-            item.Click += addLayerToolStripMenuItem_Click;
-            menuStrip.Items.Add(item);
-            item = new ToolStripMenuItem(Properties.Resources.RemoveLayer);
-            item.Click += miRemoveLayer_Click;
-            item.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
-            menuStrip.Items.Add(item);
-            item = new ToolStripMenuItem(Properties.Resources.ZoomToLayer);
-            item.Click += zoomToLayerToolStripMenuItem_Click;
-            item.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
-            menuStrip.Items.Add(item);
-            item = new ToolStripMenuItem(Properties.Resources.ZoomToSelection);
-            item.Click += zoomToSelectionToolStripMenuItem_Click;
-            item.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
-            menuStrip.Items.Add(item);
-
-            if (ContextMenuBuilder != null)
-            {
-                ContextMenuBuilder(this, new ContextMenuBuilderEventArgs(menuStrip));
-            }
+            miRemoveLayer.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
+            zoomToLayerToolStripMenuItem.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;
+            zoomToLayerToolStripMenuItem.Enabled = (layerContextMenu.Tag as EGIS.ShapeFileLib.ShapeFile) != null;    
         }
 
         private void miRemoveLayer_Click(object sender, EventArgs e)
@@ -289,13 +289,16 @@ namespace EGIS.Controls
         }
     }
 
-    public class ContextMenuBuilderEventArgs : EventArgs
+    public class IndexChangedEventArgs : EventArgs
     {
-        public ContextMenuBuilderEventArgs(ContextMenuStrip menuStrip)
+        public IndexChangedEventArgs(int oldIndex, int newIndex)
         {
-            MenuStrip = menuStrip;
+            OldIndex = oldIndex;
+            NewIndex = newIndex;
         }
 
-        public ContextMenuStrip MenuStrip { get; set; }
+        public int OldIndex { get; set; }
+
+        public int NewIndex { get; set; }
     }
 }
