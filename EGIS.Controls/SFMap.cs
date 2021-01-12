@@ -863,7 +863,17 @@ namespace EGIS.Controls
                     }
                 }
             }
-            if(extentSet) FitToExtent(extent);
+            if (extentSet)
+            {
+                if ((extent.Width == double.Epsilon) && (extent.Height == double.Epsilon))
+                {
+                    extent.X = extent.X - 0.5;
+                    extent.Y = extent.Y - 0.5;
+                    extent.Width = 1.0;
+                    extent.Height = 1.0;
+                }
+                FitToExtent(extent);
+            }
         }
 
         /// <summary>
