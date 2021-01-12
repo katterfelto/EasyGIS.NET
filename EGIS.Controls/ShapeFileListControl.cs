@@ -58,6 +58,12 @@ namespace EGIS.Controls
 
         #region events
 
+        public event EventHandler<IndexChangedEventArgs> LayerMovedUp;
+
+        public event EventHandler<IndexChangedEventArgs> LayerMovedDown;
+
+        public event EventHandler<IndexChangedEventArgs> LayerRemoved;
+
         /// <summary>
         /// Subscribe to this event to be able to modify the ShapeFileListControl context menu
         /// </summary>
@@ -101,9 +107,16 @@ namespace EGIS.Controls
         {
             if (_map != null && lstShapefiles.SelectedItem != null)
             {
+                int oldIndex = lstShapefiles.SelectedIndex;
+
                 EGIS.ShapeFileLib.ShapeFile sf = lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile;
                 _map.MoveShapeFileUp(lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile);
                 lstShapefiles.SelectedItem = sf;
+
+                if (LayerMovedUp != null)
+                {
+                    LayerMovedUp(this, new IndexChangedEventArgs(oldIndex, oldIndex++));
+                }
             }
         }
 
@@ -111,9 +124,16 @@ namespace EGIS.Controls
         {
             if (_map != null && lstShapefiles.SelectedItem != null)
             {
+                int oldIndex = lstShapefiles.SelectedIndex;
+
                 EGIS.ShapeFileLib.ShapeFile sf = lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile;
                 _map.MoveShapeFileDown(lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile);
                 lstShapefiles.SelectedItem = sf;
+
+                if (LayerMovedDown != null)
+                {
+                    LayerMovedDown(this, new IndexChangedEventArgs(oldIndex, oldIndex--));
+                }
             }
 
         }
@@ -124,11 +144,18 @@ namespace EGIS.Controls
             {
                 if (MessageBox.Show(this, "Remove Layer " + lstShapefiles.SelectedItem.ToString() + "?", "Confirm Layer Removal", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question) == DialogResult.Yes)
                 {
+                    int oldIndex = lstShapefiles.SelectedIndex;
+
                     EGIS.ShapeFileLib.ShapeFile sf = lstShapefiles.SelectedItem as EGIS.ShapeFileLib.ShapeFile;
 
                     _map.RemoveShapeFile(sf);
                     sf.Close();
 					System.GC.Collect();
+
+                    if (LayerRemoved != null)
+                    {
+                        LayerRemoved(this, new IndexChangedEventArgs(oldIndex, -1));
+                    }
                 }
             }
         }
@@ -287,6 +314,19 @@ namespace EGIS.Controls
             }
 
         }
+    }
+
+    public class IndexChangedEventArgs : EventArgs
+    {
+        public IndexChangedEventArgs(int oldIndex, int newIndex)
+        {
+            OldIndex = oldIndex;
+            NewIndex = newIndex;
+        }
+
+        public int OldIndex { get; set; }
+
+        public int NewIndex { get; set; }
     }
 
     public class ContextMenuBuilderEventArgs : EventArgs
