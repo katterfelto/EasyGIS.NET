@@ -867,6 +867,18 @@ namespace EGIS.Controls
         }
 
         /// <summary>
+        /// Clears the selection.
+        /// </summary>
+        public void ClearSelection()
+        {
+            for (int i = 0; i < ShapeFileCount; i++)
+            {
+                myShapefiles[i].ClearSelectedRecords();
+            }
+            Refresh(true);
+        }
+
+        /// <summary>
         /// Converts a MousePoint (in pixel coords) to a map coordinate point
         /// </summary>
         /// <remarks>
