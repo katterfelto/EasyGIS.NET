@@ -102,6 +102,7 @@
     <Compile Include="DbfWriter.cs" />
     <Compile Include="GeometryAlgorithms.cs" />
     <Compile Include="ICustomRenderSettings.cs" />
+    <Compile Include="ICustomSelectionSettings.cs" />
     <Compile Include="MapProjectionCreator.cs" />
     <Compile Include="NativeMethods.cs" />
     <Compile Include="NavFunctions.cs" />
