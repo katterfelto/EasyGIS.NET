@@ -60,7 +60,11 @@ namespace EGIS.Controls
         /// <summary>
         /// Pan mode
         /// </summary>
-        Pan, 
+        Pan,
+        /// <summary>
+        /// Click select mode
+        /// </summary>
+        ClickSelect,
         /// <summary>
         /// Rectangular select mode
         /// </summary>
@@ -1622,6 +1626,10 @@ namespace EGIS.Controls
                     }
 
                 }
+                else if (InternalPanSelectMode == PanSelectMode.ClickSelect)
+                {
+                    e.Graphics.DrawImage(screenBuf, e.ClipRectangle, e.ClipRectangle, GraphicsUnit.Pixel);
+                }
                 else// if (InternalPanSelectMode == PanSelectMode.Pan)
                 {
                     //change this to only draw invalid area
@@ -2091,6 +2099,32 @@ namespace EGIS.Controls
 
                     if(fireEvent) OnSelectedRecordChanged(new EventArgs());
 
+                }
+                else if (InternalPanSelectMode == PanSelectMode.ClickSelect)
+                {
+                    bool fireEvent = false;
+                    for (int n = 0; n < this.ShapeFileCount; ++n)
+                    {
+                        if (!myShapefiles[n].IsSelectable) continue;
+                        fireEvent = true;
+                        int index = GetShapeIndexAtPixelCoord(n, e.Location, 10);
+
+                        if (ToggleSelect)
+                        {
+                            myShapefiles[n].SelectRecord(index, !myShapefiles[n].IsRecordSelected(index));
+                        }
+                        else
+                        {
+                            myShapefiles[n].ClearSelectedRecords();
+                            myShapefiles[n].SelectRecord(index, true);
+                        }
+                    }
+
+                    MouseOffsetPoint = new Point(0, 0);
+
+                    Refresh(true);
+
+                    if (fireEvent) OnSelectedRecordChanged(new EventArgs());
                 }
                 else
                 {
