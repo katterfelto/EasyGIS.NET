@@ -1110,7 +1110,7 @@ namespace EGIS.Controls
 		/// </remarks>
 		public EGIS.ShapeFileLib.ShapeFile AddShapeFile(string path, string name, string labelFieldName, bool useMemoryStreams=false, bool fitMapToLayerExtent=true, bool refreshImmediately=true)
         {            
-            EGIS.ShapeFileLib.ShapeFile sf = OpenShapeFile(path, name, labelFieldName, useMemoryStreams);
+            EGIS.ShapeFileLib.ShapeFile sf = OpenShapeFile(path, name, labelFieldName, useMemoryStreams, true);
 
 			if (fitMapToLayerExtent)
 			{
@@ -1198,13 +1198,87 @@ namespace EGIS.Controls
 			}
 			OnShapeFilesChanged();
 			return shapeFile;
-		}
+        }
+
+        /// <summary>
+        /// Opens a new shapefile layer ready for insertion into the map
+        /// </summary>
+        /// <param name="path">The file path to the ShapeFile</param>
+        /// <param name="name">The "display" name of the ShapeFile.</param>
+        /// <param name="labelFieldName">The name of the field in the ShapeFiles's DBF file to use when rendering the shape labels</param>
+		/// <param name="useMemoryStreams">Optional parameter indicating whether to open the ShapeFile using MemoryStreams. Default is false</param>
+		/// <param name="addToMap">Optional parameter indicating whether to add the ShapeFile to the map controls list. Default is false</param>
+        /// <returns>Returns the created ShapeFile</returns>
+        /// <remarks>
+        /// After the shapefile is opened it's basic render settings are updated but the layer is not added to the control unless <c>addMap</c> is <c>true</c>
+        /// </remarks>
+        public EGIS.ShapeFileLib.ShapeFile OpenShapeFile(string path, string name, string labelFieldName, bool useMemoryStreams = false, bool addToMap = false)
+        {
+            if (path.EndsWith(".shp", StringComparison.OrdinalIgnoreCase))
+            {
+                path = path.Substring(0, path.Length - 4);
+            }
+            else
+            {
+                throw new ArgumentException("path does not end in \".shp\"");
+            }
+
+            EGIS.ShapeFileLib.ShapeFile sf = new EGIS.ShapeFileLib.ShapeFile();
+
+            sf.LoadFromFile(path, useMemoryStreams || this.UseMemoryStreams);
+            sf.Name = name;
+            if (sf.RenderSettings != null) sf.RenderSettings.Dispose();
+            sf.RenderSettings = new EGIS.ShapeFileLib.RenderSettings(path, labelFieldName, new Font(this.Font.FontFamily, 6f));
+            LoadOptimalRenderSettings(sf);
+
+            if (addToMap)
+            {
+                myShapefiles.Add(sf);
+            }
+
+            return sf;
+        }
+
+        /// <summary>
+        /// Insert a new ShapeFile layer to the map at the specified layer index
+        /// </summary>
+        /// <param name="index">The layer index the shapefile should be insertered at</param>
+        /// <param name="shapeFile">The ShapeFile to insert</param>
+		/// <param name="fitMapToLayerExtent">optional parameter to fit the map to the shapefile's extent. Default is true</param>
+		/// <param name="refreshImmediately">optional parameter to force the control to refresh immediately (this is only executed if <c>fitMapToLayerExtent</c> is <c>false</c>). Default is true</param>
+        /// <remarks>
+        /// After the shapefile is inserted to the map, the map will auto fit the entire ShapeFile in the control by adjusting the 
+        /// current ZoomLevel and CentrePoint accordingly.
+        /// </remarks>
+        public void InsertShapeFile(int index, EGIS.ShapeFileLib.ShapeFile shapeFile, bool fitMapToLayerExtent = true, bool refreshImmediately = true)
+        {
+            myShapefiles.Insert(index, shapeFile);
+
+            if (fitMapToLayerExtent)
+            {
+                RectangleD extent = shapeFile.Extent.Transform(shapeFile.CoordinateReferenceSystem, this.MapCoordinateReferenceSystem);
+                FitToExtent(extent);
+            }
+            else
+            {
+                //refresh so the layer is drawn
+                if (refreshImmediately)
+                {
+                    Refresh(true);
+                }
+                else
+                {
+                    InvalidateAndClearBackground();
+                }
+            }
+            OnShapeFilesChanged();
+        }
 
 
-		/// <summary>
-		/// Removes all ShapeFile layers from the map
-		/// </summary>
-		public void ClearShapeFiles()
+        /// <summary>
+        /// Removes all ShapeFile layers from the map
+        /// </summary>
+        public void ClearShapeFiles()
         {
             for (int n = 0; n < myShapefiles.Count; n++)
             {
@@ -1387,27 +1461,6 @@ namespace EGIS.Controls
 		#endregion
 
 		#region "Private methods"
-
-		private EGIS.ShapeFileLib.ShapeFile OpenShapeFile(string path, string name, string renderFieldName, bool useMemoryStreams = false)
-        {
-            if (path.EndsWith(".shp", StringComparison.OrdinalIgnoreCase))
-            {
-                path = path.Substring(0, path.Length - 4);
-            }
-            else
-            {
-                throw new ArgumentException("path does not end in \".shp\"");
-            }
-            
-            EGIS.ShapeFileLib.ShapeFile sf = new EGIS.ShapeFileLib.ShapeFile();
-            sf.LoadFromFile(path, useMemoryStreams || this.UseMemoryStreams);
-            sf.Name = name;
-            if (sf.RenderSettings != null) sf.RenderSettings.Dispose();
-            sf.RenderSettings = new EGIS.ShapeFileLib.RenderSettings(path, renderFieldName, new Font(this.Font.FontFamily, 6f));
-            LoadOptimalRenderSettings(sf);
-            myShapefiles.Add(sf);
-            return sf;
-        }
 
         private EGIS.ShapeFileLib.ShapeFile OpenShapeFile(Stream shxStream, Stream shpStream, Stream dbfStream, Stream prjStream, string name, string renderFieldName)
         {            
