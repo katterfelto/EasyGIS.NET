@@ -70,6 +70,10 @@ namespace EGIS.Controls
         /// </summary>
         SelectCircle,
         /// <summary>
+        /// Polygon select mode
+        /// </summary>
+        SelectPolygon,
+        /// <summary>
         /// Zoom map to selected rectangle
         /// </summary>
         ZoomRectangle,
@@ -1622,6 +1626,28 @@ namespace EGIS.Controls
                     }
 
                 }
+                else if (InternalPanSelectMode == PanSelectMode.SelectPolygon)
+                {
+                    e.Graphics.DrawImage(screenBuf, e.ClipRectangle, e.ClipRectangle, GraphicsUnit.Pixel);
+                    if (_MousePoints.Count > 1)
+                    {
+                        Point[] pts = new Point[_MousePoints.Count];
+                        for (int i = 0; i < _MousePoints.Count; i++)
+                        {
+                            pts[i] = GisPointToPixelCoord(_MousePoints[i]);
+                        }
+                        using (Pen p = new Pen(Color.Red, 1))
+                        {
+                            using (Brush b = new SolidBrush(Color.FromArgb(20, Color.Red)))
+                            {
+
+                                e.Graphics.FillPolygon(b, pts);
+                            }
+                            p.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                            e.Graphics.DrawPolygon(p, pts);
+                        }
+                    }
+                }
                 else// if (InternalPanSelectMode == PanSelectMode.Pan)
                 {
                     //change this to only draw invalid area
@@ -1732,6 +1758,7 @@ namespace EGIS.Controls
         {
             base.OnKeyDown(e);
 
+            AltKeyDown = (e.KeyCode == Keys.Menu);
             CtrlKeyDown = (e.KeyCode == Keys.ControlKey || e.KeyCode == Keys.LControlKey || e.KeyCode == Keys.RControlKey);
             ShiftKeyDown = (e.KeyCode == Keys.ShiftKey);
             switch (e.KeyCode)
@@ -1754,8 +1781,45 @@ namespace EGIS.Controls
         protected override void OnKeyUp(KeyEventArgs e)
         {
             base.OnKeyUp(e);
+            AltKeyDown = false;
             CtrlKeyDown = false;
             ShiftKeyDown = false;
+
+            if ((InternalPanSelectMode == PanSelectMode.SelectPolygon) && (_MousePoints.Count > 2))
+            {
+                bool fireEvent = false;
+                for (int n = 0; n < this.ShapeFileCount; ++n)
+                {
+                    if (!myShapefiles[n].IsSelectable) continue;
+                    fireEvent = true;
+                    List<int> ind = new List<int>();
+                    myShapefiles[n].GetShapeIndiciesIntersectingPolygon(ind, _MousePoints.ToArray(), _MousePointsBounds);
+
+                    if (ToggleSelect)
+                    {
+                        foreach (int index in ind)
+                        {
+                            myShapefiles[n].SelectRecord(index, !myShapefiles[n].IsRecordSelected(index));
+                        }
+                    }
+                    else
+                    {
+                        myShapefiles[n].ClearSelectedRecords();
+                        foreach (int index in ind)
+                        {
+                            myShapefiles[n].SelectRecord(index, true);
+                        }
+                    }
+                }
+
+                MouseOffsetPoint = new Point(0, 0);
+
+                InternalPanSelectMode = PanSelectMode.None;
+                Refresh(true);
+
+                if (fireEvent) OnSelectedRecordChanged(new EventArgs());
+            }
+            _MousePoints.Clear();
         }
 
         /// <summary>
@@ -1809,6 +1873,7 @@ namespace EGIS.Controls
 
         private PanSelectMode _panSelectMode = PanSelectMode.Pan;
 
+        private bool _altDown = false;
         private bool _ctrlDown = false;
         private bool _shiftDown = false;
         private bool _toggleSelect = false;
@@ -1817,7 +1882,22 @@ namespace EGIS.Controls
         private Point _mouseDownPt = Point.Empty;
         private Point _mouseOffPt = new Point(0, 0);
 
+        private List<PointD> _MousePoints = new List<PointD>();
+        private RectangleD _MousePointsBounds = new RectangleD();
+
         #region protected mouse handling properties
+
+        protected bool AltKeyDown
+        {
+            get
+            {
+                return _altDown;
+            }
+            set
+            {
+                _altDown = value;
+            }
+        }
 
         protected bool CtrlKeyDown
         {
@@ -1936,6 +2016,10 @@ namespace EGIS.Controls
                 {
                     InternalPanSelectMode = (e.Button == MouseButtons.Left) ? PanSelectMode.SelectRectangle : PanSelectMode.SelectCircle;
                     ToggleSelect = false;
+                }
+                else if (AltKeyDown)
+                {
+                    InternalPanSelectMode = PanSelectMode.SelectPolygon;
                 }
                 else if (CtrlKeyDown)
                 {
@@ -2091,6 +2175,25 @@ namespace EGIS.Controls
 
                     if(fireEvent) OnSelectedRecordChanged(new EventArgs());
 
+                }
+                else if (InternalPanSelectMode == PanSelectMode.SelectPolygon)
+                {
+                    PointD pt = PixelCoordToGisPoint(e.X, e.Y);
+                    _MousePoints.Add(pt);
+                    if (_MousePoints.Count > 1)
+                    {
+                        _MousePointsBounds = RectangleD.FromLTRB(Math.Min(_MousePointsBounds.Left, pt.X),
+                           Math.Min(_MousePointsBounds.Top, pt.Y),
+                           Math.Max(_MousePointsBounds.Right, pt.X),
+                           Math.Max(_MousePointsBounds.Bottom, pt.Y));
+                    }
+                    else
+                    {
+                        _MousePointsBounds.Location = pt;
+                        _MousePointsBounds.Width = 0;
+                        _MousePointsBounds.Height = 0;
+                    }
+                    Refresh(true);
                 }
                 else
                 {
