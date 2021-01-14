@@ -59,41 +59,5 @@ namespace EGIS.Controls.Properties {
                 resourceCulture = value;
             }
         }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Add Layer.
-        /// </summary>
-        internal static string AddLayer {
-            get {
-                return ResourceManager.GetString("AddLayer", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Remove Layer.
-        /// </summary>
-        internal static string RemoveLayer {
-            get {
-                return ResourceManager.GetString("RemoveLayer", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Zoom to Layer.
-        /// </summary>
-        internal static string ZoomToLayer {
-            get {
-                return ResourceManager.GetString("ZoomToLayer", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Zoom to Selection.
-        /// </summary>
-        internal static string ZoomToSelection {
-            get {
-                return ResourceManager.GetString("ZoomToSelection", resourceCulture);
-            }
-        }
     }
 }
