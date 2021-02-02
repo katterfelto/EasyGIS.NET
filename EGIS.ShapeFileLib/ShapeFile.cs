@@ -1553,30 +1553,37 @@ namespace EGIS.ShapeFileLib
             extent.Inflate(minDistance, minDistance);
             if (extent.Contains(pt))
             {
-                switch (sfRecordCol.MainHeader.ShapeType)
+                try
                 {
-                    case ShapeType.Point:
-                        return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPointCol, this.shapeFileStream);
-                    case ShapeType.PointZ:
-                        return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPointZCol, this.shapeFileStream);                        
-                    case ShapeType.Polygon:
-                        return GetShapeIndexContainingPoint(pt, sfRecordCol as SFPolygonCol);
-                    case ShapeType.PolygonZ:
-                        return GetShapeIndexContainingPoint(pt, sfRecordCol as SFPolygonZCol);
-                    case ShapeType.PolyLine:
-                        return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPolyLineCol);
-                    case ShapeType.PolyLineM:
-                        return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPolyLineMCol);
-                    case ShapeType.PolyLineZ:
-                        return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPolyLineZCol);
-                    case ShapeType.MultiPoint:
-                        return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFMultiPointCol, this.shapeFileStream);
-                    case ShapeType.MultiPointZ:
-                        return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFMultiPointZCol, this.shapeFileStream);                        
-                    
-                    default:
-                        return -1;
-                }                
+                    switch (sfRecordCol.MainHeader.ShapeType)
+                    {
+                        case ShapeType.Point:
+                            return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPointCol, this.shapeFileStream);
+                        case ShapeType.PointZ:
+                            return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPointZCol, this.shapeFileStream);
+                        case ShapeType.Polygon:
+                            return GetShapeIndexContainingPoint(pt, sfRecordCol as SFPolygonCol);
+                        case ShapeType.PolygonZ:
+                            return GetShapeIndexContainingPoint(pt, sfRecordCol as SFPolygonZCol);
+                        case ShapeType.PolyLine:
+                            return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPolyLineCol);
+                        case ShapeType.PolyLineM:
+                            return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPolyLineMCol);
+                        case ShapeType.PolyLineZ:
+                            return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFPolyLineZCol);
+                        case ShapeType.MultiPoint:
+                            return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFMultiPointCol, this.shapeFileStream);
+                        case ShapeType.MultiPointZ:
+                            return GetShapeIndexContainingPoint(pt, minDistance, sfRecordCol as SFMultiPointZCol, this.shapeFileStream);
+
+                        default:
+                            return -1;
+                    }
+                }
+                catch
+                {
+                    return -1;
+                }
             }
             return -1;
         }
