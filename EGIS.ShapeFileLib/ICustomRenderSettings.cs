@@ -113,5 +113,12 @@ namespace EGIS.ShapeFileLib
         /// <param name="recordNumber">The record number.</param>
         /// <returns><c>1</c> for forward direction; <c>-1</c> for reverse direction; <c>0</c> to suppress direction marker</returns>
         int GetDirection(int recordNumber);
+
+        /// <summary>
+        /// Returns the ArrowColor to use when rendering the specified shape
+        /// </summary>
+        /// <param name="recordNumber">zero-based record number of the shape</param>
+        /// <returns></returns>
+        System.Drawing.Color GetRecordDirectionArrowColor(int recordNumber);
     }
 }

@@ -225,6 +225,11 @@ namespace EGIS.ShapeFileLib
             return 0;
         }
 
+        public System.Drawing.Color GetRecordDirectionArrowColor(int recordNumber)
+        {
+            return renderSettings.DirectionArrowColor;
+        }
+
         #endregion
 
 
@@ -308,6 +313,11 @@ namespace EGIS.ShapeFileLib
             return 0;
         }
 
+        public System.Drawing.Color GetRecordDirectionArrowColor(int recordNumber)
+        {
+            return renderSettings.DirectionArrowColor;
+        }
+
         #endregion
     }
 
@@ -358,6 +368,11 @@ namespace EGIS.ShapeFileLib
         public int GetDirection(int recordNumber)
         {
             return 0;
+        }
+
+        public System.Drawing.Color GetRecordDirectionArrowColor(int recordNumber)
+        {
+            throw new Exception("The method or operation is not implemented.");
         }
 
         #endregion
@@ -414,6 +429,11 @@ namespace EGIS.ShapeFileLib
         public int GetDirection(int recordNumber)
         {
             return 0;
+        }
+
+        public System.Drawing.Color GetRecordDirectionArrowColor(int recordNumber)
+        {
+            throw new Exception("The method or operation is not implemented.");
         }
 
         #endregion

@@ -3451,7 +3451,36 @@ namespace EGIS.ShapeFileLib
 
 			}
 
-		}
+        }
+
+
+        protected static void DrawCustomDirectionArrows(List<Point[]> pointList, int arrowLength, Pen arrowPen, Graphics g)
+        {
+
+            //use 10 pixel buffer either side of the arrow
+            int minSegmentLength = (arrowLength + 20) * (arrowLength + 20);
+            foreach (Point[] pts in pointList)
+            {
+                for (int n = 0; n < pts.Length - 1; ++n)
+                {
+                    int length = (pts[n + 1].X - pts[n].X) * (pts[n + 1].X - pts[n].X) + (pts[n + 1].Y - pts[n].Y) * (pts[n + 1].Y - pts[n].Y);
+                    if (length >= minSegmentLength)
+                    {
+
+                        Point centre = new Point((pts[n].X + pts[n + 1].X) >> 1, (pts[n].Y + pts[n + 1].Y) >> 1);
+                        double lengthD = Math.Sqrt(length);
+                        double dx = (pts[n + 1].X - pts[n].X) / lengthD;
+                        double dy = (pts[n + 1].Y - pts[n].Y) / lengthD;
+
+                        PointF p0 = new PointF(centre.X - (float)(dx * (arrowLength >> 1)), centre.Y - (float)(dy * (arrowLength >> 1)));
+                        PointF p1 = new PointF(p0.X + (float)(dx * arrowLength), p0.Y + (float)(dy * arrowLength));
+                        g.DrawLine(arrowPen, p0, p1);
+                    }
+                }
+
+            }
+
+        }
 
 
         /// <summary>
@@ -8422,6 +8451,7 @@ namespace EGIS.ShapeFileLib
 			Pen arrowPen = null;
 			bool drawArrows = false;
 			int arrowLength=50;
+            int arrowWidth = 1;
 
             IntPtr fileMappingPtr = IntPtr.Zero;
             if (MapFilesInMemory && (shapeFileStream is FileStream)) fileMappingPtr = NativeMethods.MapFile((FileStream)shapeFileStream);
@@ -8516,7 +8546,7 @@ namespace EGIS.ShapeFileLib
 
 				if (renderSettings.DrawDirectionArrows && (renderSettings.DirectionArrowMinZoomLevel < 0 || scaleX >= renderSettings.DirectionArrowMinZoomLevel) )
 				{
-					int arrowWidth = Math.Max(1,Math.Min(renderSettings.DirectionArrowWidth, 50));
+					arrowWidth = Math.Max(1,Math.Min(renderSettings.DirectionArrowWidth, 50));
 					arrowPen = new Pen(renderSettings.DirectionArrowColor, arrowWidth);
 					arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(3, 6);
 					drawArrows = true;
@@ -8650,6 +8680,13 @@ namespace EGIS.ShapeFileLib
                                                         gdiplusPen.DashStyle = renderSettings.LineDashStyle;
                                                         selectPen.DashStyle = renderSettings.LineDashStyle;
                                                     }
+                                                }
+
+                                                if (drawArrows)
+                                                {
+                                                    arrowPen = new Pen(customRenderSettings.GetRecordDirectionArrowColor(index), arrowWidth);
+                                                    arrowLength = renderSettings.PointSize;
+                                                    arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(arrowLength, arrowLength);
                                                 }
                                             }
 
@@ -9699,8 +9736,9 @@ namespace EGIS.ShapeFileLib
 			Pen arrowPen = null;
 			bool drawArrows = false;
 			int arrowLength = 50;
+            int arrowWidth = 1;
 
-			IntPtr fileMappingPtr = IntPtr.Zero;
+            IntPtr fileMappingPtr = IntPtr.Zero;
             if (MapFilesInMemory && (shapeFileStream is FileStream)) fileMappingPtr = NativeMethods.MapFile((FileStream)shapeFileStream);
             IntPtr mapView = IntPtr.Zero;
             byte* dataPtr = null;
@@ -9790,7 +9828,7 @@ namespace EGIS.ShapeFileLib
 
 				if (renderSettings.DrawDirectionArrows && (renderSettings.DirectionArrowMinZoomLevel < 0 || scaleX >= renderSettings.DirectionArrowMinZoomLevel))
 				{
-					int arrowWidth = Math.Max(1, Math.Min(renderSettings.DirectionArrowWidth, 50));
+					arrowWidth = Math.Max(1, Math.Min(renderSettings.DirectionArrowWidth, 50));
 					arrowPen = new Pen(renderSettings.DirectionArrowColor, arrowWidth);
 					arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(3, 6);
 					drawArrows = true;
@@ -9924,6 +9962,13 @@ namespace EGIS.ShapeFileLib
                                                 {
                                                     gdiplusPen.DashStyle = renderSettings.LineDashStyle;
                                                 }
+                                            }
+
+                                            if (drawArrows)
+                                            {
+                                                arrowPen = new Pen(customRenderSettings.GetRecordDirectionArrowColor(index), arrowWidth);
+                                                arrowLength = renderSettings.PointSize;
+                                                arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(arrowLength, arrowLength);
                                             }
                                         }
 
@@ -12064,8 +12109,9 @@ namespace EGIS.ShapeFileLib
 			Pen arrowPen = null;
 			bool drawArrows = false;
 			int arrowLength = 50;
+            int arrowWidth = 1;
 
-			IntPtr fileMappingPtr = IntPtr.Zero;
+            IntPtr fileMappingPtr = IntPtr.Zero;
             if (MapFilesInMemory && (shapeFileStream is FileStream)) fileMappingPtr = NativeMethods.MapFile((FileStream)shapeFileStream);
             IntPtr mapView = IntPtr.Zero;
             byte* dataPtr = null;
@@ -12163,7 +12209,7 @@ namespace EGIS.ShapeFileLib
 
 				if (renderSettings.DrawDirectionArrows && (renderSettings.DirectionArrowMinZoomLevel < 0 || scaleX >= renderSettings.DirectionArrowMinZoomLevel))
 				{
-					int arrowWidth = Math.Max(1, Math.Min(renderSettings.DirectionArrowWidth, 50));
+					arrowWidth = Math.Max(1, Math.Min(renderSettings.DirectionArrowWidth, 50));
 					arrowPen = new Pen(renderSettings.DirectionArrowColor, arrowWidth);
 					arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(3, 6);
 					drawArrows = true;
@@ -12301,6 +12347,13 @@ namespace EGIS.ShapeFileLib
                                                         gdiplusPen.DashStyle = renderSettings.LineDashStyle;
                                                         selectPen.DashStyle = renderSettings.LineDashStyle;
                                                     }
+                                                }
+
+                                                if (drawArrows)
+                                                {
+                                                    arrowPen = new Pen(customRenderSettings.GetRecordDirectionArrowColor(index), arrowWidth);
+                                                    arrowLength = renderSettings.PointSize;
+                                                    arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(arrowLength, arrowLength);
                                                 }
                                             }
 

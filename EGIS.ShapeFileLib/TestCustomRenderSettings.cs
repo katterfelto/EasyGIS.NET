@@ -167,6 +167,11 @@ namespace EGIS.ShapeFileLib
             return 0;
         }
 
+        public System.Drawing.Color GetRecordDirectionArrowColor(int recordNumber)
+        {
+            return this.renderSettings.DirectionArrowColor;
+        }
+
         #endregion
     }
 }
