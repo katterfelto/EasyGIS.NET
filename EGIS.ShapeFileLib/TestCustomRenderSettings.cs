@@ -172,6 +172,8 @@ namespace EGIS.ShapeFileLib
             return this.renderSettings.DirectionArrowColor;
         }
 
+        public System.Drawing.ContentAlignment LabelLocation { get { return System.Drawing.ContentAlignment.TopRight; } }
+
         #endregion
     }
 }
