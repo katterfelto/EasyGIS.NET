@@ -230,6 +230,8 @@ namespace EGIS.ShapeFileLib
             return renderSettings.DirectionArrowColor;
         }
 
+        public ContentAlignment LabelLocation { get { return ContentAlignment.MiddleCenter; } }
+
         #endregion
 
 
@@ -318,6 +320,8 @@ namespace EGIS.ShapeFileLib
             return renderSettings.DirectionArrowColor;
         }
 
+        public ContentAlignment LabelLocation { get { return ContentAlignment.MiddleCenter; } }
+
         #endregion
     }
 
@@ -374,6 +378,8 @@ namespace EGIS.ShapeFileLib
         {
             throw new Exception("The method or operation is not implemented.");
         }
+
+        public ContentAlignment LabelLocation { get { return ContentAlignment.MiddleCenter; } }
 
         #endregion
     }
@@ -435,6 +441,8 @@ namespace EGIS.ShapeFileLib
         {
             throw new Exception("The method or operation is not implemented.");
         }
+
+        public ContentAlignment LabelLocation { get { return ContentAlignment.MiddleCenter; } }
 
         #endregion
     }
