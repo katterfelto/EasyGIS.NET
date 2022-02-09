@@ -5120,13 +5120,13 @@ namespace EGIS.ShapeFileLib
                                 case ContentAlignment.MiddleLeft:
                                     {
                                         x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
-                                        y0 = (int)(labelSize.Height / 2);
+                                        y0 = -(int)(labelSize.Height / 2);
                                         break;
                                     }
                                 case ContentAlignment.MiddleRight:
                                     {
                                         x0 = renderPtObjList[n].offX;
-                                        y0 = (int)(labelSize.Height / 2);
+                                        y0 = -(int)(labelSize.Height / 2);
                                         break;
                                     }
 
@@ -6095,13 +6095,13 @@ namespace EGIS.ShapeFileLib
                                 case ContentAlignment.MiddleLeft:
                                     {
                                         x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
-                                        y0 = (int)(labelSize.Height / 2);
+                                        y0 = -(int)(labelSize.Height / 2);
                                         break;
                                     }
                                 case ContentAlignment.MiddleRight:
                                     {
                                         x0 = renderPtObjList[n].offX;
-                                        y0 = (int)(labelSize.Height / 2);
+                                        y0 = -(int)(labelSize.Height / 2);
                                         break;
                                     }
 
@@ -7032,13 +7032,13 @@ namespace EGIS.ShapeFileLib
                                 case ContentAlignment.MiddleLeft:
                                     {
                                         x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
-                                        y0 = (int)(labelSize.Height / 2);
+                                        y0 = -(int)(labelSize.Height / 2);
                                         break;
                                     }
                                 case ContentAlignment.MiddleRight:
                                     {
                                         x0 = renderPtObjList[n].offX;
-                                        y0 = (int)(labelSize.Height / 2);
+                                        y0 = -(int)(labelSize.Height / 2);
                                         break;
                                     }
 
@@ -8043,13 +8043,13 @@ namespace EGIS.ShapeFileLib
                                 case ContentAlignment.MiddleLeft:
                                     {
                                         x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
-                                        y0 = (int)(labelSize.Height / 2);
+                                        y0 = -(int)(labelSize.Height / 2);
                                         break;
                                     }
                                 case ContentAlignment.MiddleRight:
                                     {
                                         x0 = renderPtObjList[n].offX;
-                                        y0 = (int)(labelSize.Height / 2);
+                                        y0 = -(int)(labelSize.Height / 2);
                                         break;
                                     }
 
