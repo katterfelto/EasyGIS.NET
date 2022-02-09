@@ -5100,7 +5100,7 @@ namespace EGIS.ShapeFileLib
                             {
                                 case ContentAlignment.BottomLeft:
                                     {
-                                        x0 = -(int)labelSize.Width;// -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
                                         y0 = -renderPtObjList[n].offY;
                                         break;
                                     }
@@ -6075,7 +6075,7 @@ namespace EGIS.ShapeFileLib
                             {
                                 case ContentAlignment.BottomLeft:
                                     {
-                                        x0 = -(int)labelSize.Width;// -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
                                         y0 = -renderPtObjList[n].offY;
                                         break;
                                     }
@@ -7012,7 +7012,7 @@ namespace EGIS.ShapeFileLib
                             {
                                 case ContentAlignment.BottomLeft:
                                     {
-                                        x0 = -(int)labelSize.Width;// -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
                                         y0 = -renderPtObjList[n].offY;
                                         break;
                                     }
@@ -8023,7 +8023,7 @@ namespace EGIS.ShapeFileLib
                             {
                                 case ContentAlignment.BottomLeft:
                                     {
-                                        x0 = -(int)labelSize.Width;// -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
                                         y0 = -renderPtObjList[n].offY;
                                         break;
                                     }
