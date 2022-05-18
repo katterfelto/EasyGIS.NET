@@ -90,6 +90,14 @@ namespace EGIS.ShapeFileLib
 			get { return renderSettings.FieldIndex >= 0; }
 		}
 
+        public ContentAlignment LabelLocation
+		{
+			get
+			{
+				return ContentAlignment.MiddleCenter;
+			}
+		}
+
 		/// <summary>
 		/// virtual GetRecordOutlineColor that returns the default  method that returns false
 		/// </summary>
@@ -129,6 +137,11 @@ namespace EGIS.ShapeFileLib
 		public virtual int GetDirection(int recordNumber)
 		{
 			return renderSettings.DrawDirectionArrows ? 1 : 0;
+		}
+
+        public Color GetRecordDirectionArrowColor(int recordNumber)
+        {
+			return this.renderSettings.FillColor;
 		}
 	}
 }

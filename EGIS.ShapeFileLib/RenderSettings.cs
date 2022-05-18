@@ -852,6 +852,24 @@ namespace EGIS.ShapeFileLib
 		}
 		
 
+		private ICustomSelectionSettings _customSelectionSettings;
+
+		/// <summary>
+		/// Gets or sets a ISelectionSettings object that should be applied when rendering sel;ected objects in the shapefile
+		/// </summary>
+		/// <seealso cref="EGIS.ShapeFileLib.ICustomSelectionSettings"/>
+		public ICustomSelectionSettings CustomSelectionSettings
+		{
+			get
+			{
+				return _customSelectionSettings;
+			}
+			set
+			{
+				_customSelectionSettings = value;
+			}
+		}
+
 		private ICustomRenderSettings _customRenderSettings;
 
         /// <summary>
