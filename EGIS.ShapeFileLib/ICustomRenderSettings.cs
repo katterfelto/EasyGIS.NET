@@ -142,5 +142,21 @@ namespace EGIS.ShapeFileLib
         /// </para>
         /// </remarks>
         int GetDirection(int recordNumber);
+
+        /// <summary>
+        /// Returns the ArrowColor to use when rendering the specified shape
+        /// </summary>
+        /// <param name="recordNumber">zero-based record number of the shape</param>
+        /// <returns></returns>
+        System.Drawing.Color GetRecordDirectionArrowColor(int recordNumber);
+        
+        /// <summary>
+        /// Gets the label location in relation to the object.
+        /// </summary>
+        /// <remarks>
+        /// <para>This is only applied to point objects</para>
+        /// <para>To disable and use default placement set to <c>MiddleCenter</c></para>
+        /// </remarks>
+        System.Drawing.ContentAlignment LabelLocation {  get; }
     }
 }
