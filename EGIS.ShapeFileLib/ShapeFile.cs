@@ -570,6 +570,22 @@ namespace EGIS.ShapeFileLib
         }
 
         /// <summary>
+        /// Gets all of the Attribute Types contained in the shapefile's DBF file
+        /// </summary>        
+        /// <returns></returns>
+        public DbfFieldType[] GetAttributeFieldTypes()
+        {
+            DbfFieldType[] result = null;
+
+            if (myRenderer != null)
+            {
+                result = myRenderer.DbfReader.GetFieldTypes();
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Gets all of the Attribute values contained in the shapefile's DBF file        
         /// </summary>
         /// <param name="recordNumber">zero based index of the required record/shape</param>
@@ -1551,6 +1567,8 @@ namespace EGIS.ShapeFileLib
             extent.Inflate(minDistance, minDistance);
             if (extent.Contains(pt))
             {
+                try
+                {
                 switch (sfRecordCol.MainHeader.ShapeType)
                 {
                     case ShapeType.Point:
@@ -1575,6 +1593,11 @@ namespace EGIS.ShapeFileLib
                     default:
                         return -1;
                 }                
+            }
+                catch
+                {
+                    return -1;
+                }
             }
             return -1;
         }
@@ -2037,13 +2060,53 @@ namespace EGIS.ShapeFileLib
             }
         }
 
+        #region Intersecting polygon
 
-        /// <summary>
-        /// gets index of closest record from a given point and search radius
-        /// </summary>
-        /// <param name="centre">the coord of the point to search from</param>
-        /// <param name="radius">search radius in the shapefile's coordinate units</param>
-        /// <returns>index of closest record within the search radius or -1 if distance to closest record is &gt; radius </returns>
+        public void GetShapeIndiciesIntersectingPolygon(List<int> indicies, PointD[] polygon, RectangleD bounds)
+        {
+            if ((indicies == null) || (polygon.Length < 3)) return;
+
+            GetShapeIndiciesIntersectingRect(indicies, bounds);
+
+            if (indicies.Count > 0)
+            {
+                switch (sfRecordCol.MainHeader.ShapeType)
+                {
+                    default:
+                        GetShapeIndiciesIntersectingPolygon(indicies, polygon, sfRecordCol);
+                        break;
+                }
+            }
+        }
+
+        private void GetShapeIndiciesIntersectingPolygon(List<int> indices, PointD[] polygon, SFRecordCol col)
+        {
+            List<int> remove = new List<int>();
+
+            foreach (int i in indices)
+            {
+                if (!col.IntersectPolygon(i, polygon, shapeFileStream))
+                {
+                    remove.Add(i);
+                }
+            }
+
+            if (remove.Count > 0)
+            {
+                if (remove.Count == indices.Count)
+                {
+                    indices.Clear();
+                }
+                else
+                {
+                    indices.RemoveAll(i => remove.Contains(i));
+                }
+            }
+        }
+
+        #endregion
+
+
         public int GetClosestShape(PointD centre, double radius)
         {
             return GetClosestShape(centre, radius, sfRecordCol);            
@@ -2076,14 +2139,6 @@ namespace EGIS.ShapeFileLib
             return closestIndex;
         }
 
-        /// <summary>
-        /// gets index of closest record from a given point and search radius with optional polyline distance info if the shapefile type is
-        /// a polyline or polylineM shapefile
-        /// </summary>
-        /// <param name="centre">the coord of the point to search from</param>
-        /// <param name="radius">search radius in the shapefile's coordinate units</param>
-        /// <param name="polylineDistanceInfo">out parameter with closest record polyline information (useful for linear referencing). Only used for polyline and polylineM ShapeType</param>
-        /// <returns>index of closest record within the search radius or -1 if distance to closest record is &gt; radius </returns>
         public int GetClosestShape(PointD centre, double radius, out PolylineDistanceInfo polylineDistanceInfo)
         {
             return GetClosestShape(centre, radius, sfRecordCol, out polylineDistanceInfo);
@@ -2839,6 +2894,8 @@ namespace EGIS.ShapeFileLib
         
         public abstract unsafe bool IntersectCircle(int shapeIndex, PointD centre, double radius, System.IO.Stream shapeFileStream);
 
+        public abstract unsafe bool IntersectPolygon(int recordIndex, PointD[] polygon, System.IO.Stream shapeFileStream);
+
         public abstract double GetDistanceToShape(int shapeIndex, PointD centre, double radius, System.IO.Stream shapeFileStream);
 
         public abstract double GetDistanceToShape(int shapeIndex, PointD centre, double radius, System.IO.Stream shapeFileStream, out PolylineDistanceInfo polylineDistanceInfo);
@@ -3413,6 +3470,35 @@ namespace EGIS.ShapeFileLib
 		}
 
 
+        protected static void DrawCustomDirectionArrows(List<Point[]> pointList, int arrowLength, Pen arrowPen, Graphics g)
+        {
+
+            //use 10 pixel buffer either side of the arrow
+            int minSegmentLength = (arrowLength + 20) * (arrowLength + 20);
+            foreach (Point[] pts in pointList)
+            {
+                for (int n = 0; n < pts.Length - 1; ++n)
+                {
+                    int length = (pts[n + 1].X - pts[n].X) * (pts[n + 1].X - pts[n].X) + (pts[n + 1].Y - pts[n].Y) * (pts[n + 1].Y - pts[n].Y);
+                    if (length >= minSegmentLength)
+                    {
+
+                        Point centre = new Point((pts[n].X + pts[n + 1].X) >> 1, (pts[n].Y + pts[n + 1].Y) >> 1);
+                        double lengthD = Math.Sqrt(length);
+                        double dx = (pts[n + 1].X - pts[n].X) / lengthD;
+                        double dy = (pts[n + 1].Y - pts[n].Y) / lengthD;
+
+                        PointF p0 = new PointF(centre.X - (float)(dx * (arrowLength >> 1)), centre.Y - (float)(dy * (arrowLength >> 1)));
+                        PointF p1 = new PointF(p0.X + (float)(dx * arrowLength), p0.Y + (float)(dy * arrowLength));
+                        g.DrawLine(arrowPen, p0, p1);
+                    }
+                }
+
+            }
+
+        }
+
+
         /// <summary>
         /// removes any points that have infinite x or y coordinates
         /// </summary>
@@ -3641,7 +3727,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (renderSettings != null) && (customRenderSettings != null);
-
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
@@ -3655,7 +3742,7 @@ namespace EGIS.ShapeFileLib
                 testExtent = RectangleD.FromLTRB(tl.X, tl.Y, br.X, br.Y);
             }
 
-            bool labelfields =  (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
+            bool labelfields = (renderSettings != null && renderSettings.FieldIndex >= 0 && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom));
             if (renderSettings != null) renderInterior = renderSettings.FillInterior;
             List<PartBoundsIndex> partBoundsIndexList = new List<PartBoundsIndex>(256);
 
@@ -3835,11 +3922,28 @@ namespace EGIS.ShapeFileLib
                                 }
                                 if (recordSelected[index])
                                 {
+                                    if (useCustomSelectionSettings)
+                                    {
+                                        if (renderInterior)
+                                        {
+                                            using (SolidBrush customBrush = new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                            {
+                                                g.FillPath(customBrush, gp);
+                                            }
+                                        }
+                                        using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                        {
+                                            g.DrawPath(customPen, gp);
+                                        }
+                                    }
+                                    else
+                                    {
                                     if (renderInterior)
                                     {
                                         g.FillPath(selectBrush, gp);
                                     }
                                     g.DrawPath(selectPen, gp);
+                                }
                                 }
                                 else
                                 {
@@ -3983,8 +4087,18 @@ namespace EGIS.ShapeFileLib
                 testExtent = targetExtent;
             }
 
-            ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
-            bool useCustomRenderSettings = (renderSettings != null) && (customRenderSettings != null);
+            ICustomRenderSettings customRenderSettings = null;
+            if (renderSettings != null)
+            {
+                customRenderSettings = renderSettings.CustomRenderSettings;
+            }
+            bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = null;
+            if (renderSettings != null)
+            {
+                customSelectionSettings = renderSettings.CustomSelectionSettings;
+            }
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
 
             Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
             bool MercProj=projectionType == ProjectionType.Mercator;
@@ -4089,7 +4203,27 @@ namespace EGIS.ShapeFileLib
 
                             fixed (double* simplifiedDataPtr = simplifiedDataBuffer)
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 4, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -4163,7 +4297,7 @@ namespace EGIS.ShapeFileLib
                                     }
 
 
-                                    if (recordSelected[index])
+                                    if (recordSelected[index] && !useCustomSelectionSettings)
                                     {
                                         IntPtr tempPen = IntPtr.Zero;
                                         IntPtr tempBrush = IntPtr.Zero;
@@ -4469,6 +4603,12 @@ namespace EGIS.ShapeFileLib
             //return false;
         }
 
+        public override bool IntersectPolygon(int recordIndex, PointD[] polygon, Stream shapeFileStream)
+        {
+            List<PointD[]> pts = GetShapeDataD(recordIndex, shapeFileStream);
+            return NativeMethods.PolygonPolygonIntersect(pts[0], pts[0].Length, polygon, polygon.Length);
+        }
+
         public unsafe override double GetDistanceToShape(int shapeIndex, PointD centre, double radius, System.IO.Stream shapeFileStream)
         {
             //first check if the record's bounds intersects with the circle
@@ -4697,8 +4837,10 @@ namespace EGIS.ShapeFileLib
             }
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
+            ICustomSelectionSettings customSelectionSettings =  renderSettings.CustomSelectionSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
             bool renderInterior = true;
@@ -4736,7 +4878,6 @@ namespace EGIS.ShapeFileLib
                     }
                 }
 
-                
                 Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
                 bool useCustomImageSymbols = useCustomRenderSettings && customRenderSettings.UseCustomImageSymbols;
 
@@ -4854,23 +4995,37 @@ namespace EGIS.ShapeFileLib
                                 {
                                     if (pointSize > 0)
                                     {
-                                        if (renderInterior)
-                                        {
-                                            if (recordSelected[index])
-                                            {
-                                                g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
-                                            }
-                                            else
-                                            {
-                                                g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
-                                            }
-                                        }
                                         if (recordSelected[index])
                                         {
+                                            if (useCustomSelectionSettings)
+                                            {
+                                        if (renderInterior)
+                                        {
+                                                    using (SolidBrush customBrush = new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                            {
+                                                        g.FillEllipse(customBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
+                                            }
+                                                using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                            {
+                                                    g.DrawEllipse(customPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                            }
+                                        }
+                                            else
+                                            {
+                                                if (renderInterior)
+                                        {
+                                                    g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                }
                                             g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                        }
                                         }
                                         else
                                         {
+                                            if (renderInterior)
+                                            {
+                                                g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                            }
                                             g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
                                         }
                                     }
@@ -4886,7 +5041,17 @@ namespace EGIS.ShapeFileLib
 									//g.DrawImage(symbol, pt.X, pt.Y);
 									if (recordSelected[index])
                                     {
+										if (useCustomSelectionSettings)
+										{
+											using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+											{
+												g.DrawRectangle(customPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+											}
+										}
+										else
+										{
                                         g.DrawRectangle(selectPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                    }
                                     }
                                     if (labelFields)
                                     {
@@ -4928,6 +5093,12 @@ namespace EGIS.ShapeFileLib
                     float ssm = shadowText ? 0.8f : 1f;
                     Color currentFontColor = renderSettings.FontColor;
                     bool useCustomFontColor = customRenderSettings != null;
+                    ContentAlignment labelLocation = ContentAlignment.MiddleCenter; // use default location
+                    if (useCustomRenderSettings)
+                    {
+                        labelLocation = customRenderSettings.LabelLocation;
+                    }
+                    int x0, y0;
                     for (int n = 0; n < count; n++)
                     {
                         string strLabel;
@@ -4936,8 +5107,67 @@ namespace EGIS.ShapeFileLib
                         if (!string.IsNullOrEmpty(strLabel))
                         {
                             SizeF labelSize = g.MeasureString(strLabel, renderSettings.Font);
-                            int x0 = renderPtObjList[n].offX;
-                            int y0 = renderPtObjList[n].offY;
+                            switch (labelLocation)
+                            {
+                                case ContentAlignment.BottomLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+                                case ContentAlignment.BottomRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+
+                                case ContentAlignment.BottomCenter:
+                                    {
+                                        x0 = -(int)(labelSize.Width / 2);
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+                                case ContentAlignment.MiddleLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = -(int)(labelSize.Height / 2);
+                                        break;
+                                    }
+                                case ContentAlignment.MiddleRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = -(int)(labelSize.Height / 2);
+                                        break;
+                                    }
+
+                                case ContentAlignment.TopCenter:
+                                    {
+                                        x0 = -(int)(labelSize.Width / 2);
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+                                case ContentAlignment.TopLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+                                case ContentAlignment.TopRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+
+                                case ContentAlignment.MiddleCenter:
+                                default:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = renderPtObjList[n].offY;
+                                        break;
+                                    }
+                            }
                             if (labelPlacementMap.addLabelToMap(Point.Round(renderPtObjList[n].Pt), x0, y0, (int)Math.Round(labelSize.Width * ssm), (int)Math.Round(labelSize.Height * ssm)))
                             {
                                 if (useCustomFontColor)
@@ -5006,6 +5236,8 @@ namespace EGIS.ShapeFileLib
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
             bool renderInterior = true;
@@ -5026,8 +5258,8 @@ namespace EGIS.ShapeFileLib
                 
                 float pointSize = 6f;                
                 renderInterior = renderSettings.FillInterior;
-                pointSize = renderSettings.PointSize;                    
-                              
+                pointSize = renderSettings.PointSize;      
+
                 Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
                 bool useCustomImageSymbols = useCustomRenderSettings && customRenderSettings.UseCustomImageSymbols;
                 bool MercProj = projectionType == ProjectionType.Mercator;
@@ -5116,7 +5348,27 @@ namespace EGIS.ShapeFileLib
                             if (useCustomRenderSettings) renderShape = customRenderSettings.RenderShape(index);
                             if (nextRec->ShapeType != ShapeType.NullShape && actualExtent.Contains(nextRec->X, nextRec->Y) && renderShape)
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 2, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -5156,7 +5408,7 @@ namespace EGIS.ShapeFileLib
 
                                 if (pointSizeInt > 0)
                                 {
-                                    if (recordSelected[index])
+                                    if (recordSelected[index] && !useCustomSelectionSettings)
                                     {
                                         IntPtr tempPen = IntPtr.Zero;
                                         IntPtr tempBrush = IntPtr.Zero;
@@ -5325,6 +5577,12 @@ namespace EGIS.ShapeFileLib
             return (pt.X - centre.X) * (pt.X - centre.X) + (pt.Y - centre.Y) * (pt.Y - centre.Y) < (radius * radius);
         }
         
+        public override bool IntersectPolygon(int recordIndex, PointD[] polygon, Stream shapeFileStream)
+        {
+            PointD pt = GetPointD(recordIndex, shapeFileStream);
+            return GeometryAlgorithms.PointInPolygon(polygon, pt.X, pt.Y);
+        }
+
        
 
         #endregion
@@ -5475,6 +5733,12 @@ namespace EGIS.ShapeFileLib
             return (pt.X - centre.X) * (pt.X - centre.X) + (pt.Y - centre.Y) * (pt.Y - centre.Y) < (radius * radius);
         }
 
+        public override bool IntersectPolygon(int recordIndex, PointD[] polygon, Stream shapeFileStream)
+        {
+            PointD pt = GetPointD(recordIndex, shapeFileStream);
+            return GeometryAlgorithms.PointInPolygon(polygon, pt.X, pt.Y);
+        }
+
         public override double GetDistanceToShape(int shapeIndex, PointD centre, double radius, System.IO.Stream shapeFileStream)
         {
             PointD pt = GetPointD(shapeIndex, shapeFileStream);
@@ -5542,6 +5806,8 @@ namespace EGIS.ShapeFileLib
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
             bool renderInterior = true;
@@ -5578,7 +5844,7 @@ namespace EGIS.ShapeFileLib
                         symbolSize = new Size((int)pointSize, (int)pointSize);
                     }
                 }
-                
+
                 Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
                 bool useCustomImageSymbols = useCustomRenderSettings && customRenderSettings.UseCustomImageSymbols;
 
@@ -5697,23 +5963,37 @@ namespace EGIS.ShapeFileLib
                                 {
                                     if (pointSize > 0)
                                     {
-                                        if (renderInterior)
-                                        {
-                                            if (recordSelected[index])
-                                            {
-                                                g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
-                                            }
-                                            else
-                                            {
-                                                g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
-                                            }
-                                        }
                                         if (recordSelected[index])
                                         {
+                                            if (useCustomSelectionSettings)
+                                            {
+                                        if (renderInterior)
+                                        {
+                                                    using (SolidBrush customBrush = new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                            {
+                                                        g.FillEllipse(customBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
+                                            }
+                                                using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                            {
+                                                    g.DrawEllipse(customPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                            }
+                                        }
+                                            else
+                                            {
+                                                if (renderInterior)
+                                        {
+                                                    g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                }
                                             g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                        }
                                         }
                                         else
                                         {
+                                            if (renderInterior)
+                                            {
+                                                g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                            }
                                             g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
                                         }
                                     }
@@ -5727,7 +6007,17 @@ namespace EGIS.ShapeFileLib
                                     g.DrawImage(symbol, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1));
                                     if (recordSelected[index])
                                     {
+                                        if (useCustomSelectionSettings)
+                                        {
+                                            using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                            {
+                                                g.DrawRectangle(customPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                            }
+                                        }
+                                        else
+                                        {
                                         g.DrawRectangle(selectPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                    }
                                     }
                                     if (labelFields)
                                     {
@@ -5769,6 +6059,12 @@ namespace EGIS.ShapeFileLib
                     float ssm = shadowText ? 0.8f : 1f;
                     Color currentFontColor = renderSettings.FontColor;
                     bool useCustomFontColor = customRenderSettings != null;
+                    ContentAlignment labelLocation = ContentAlignment.MiddleCenter; // use default location
+                    if (useCustomRenderSettings)
+                    {
+                        labelLocation = customRenderSettings.LabelLocation;
+                    }
+                    int x0, y0;
                     for (int n = 0; n < count; n++)
                     {
                         string strLabel;
@@ -5777,8 +6073,67 @@ namespace EGIS.ShapeFileLib
                         if (!string.IsNullOrEmpty(strLabel))
                         {
                             SizeF labelSize = g.MeasureString(strLabel, renderSettings.Font);
-                            int x0 = renderPtObjList[n].offX;
-                            int y0 = renderPtObjList[n].offY;
+                            switch (labelLocation)
+                            {
+                                case ContentAlignment.BottomLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+                                case ContentAlignment.BottomRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+
+                                case ContentAlignment.BottomCenter:
+                                    {
+                                        x0 = -(int)(labelSize.Width / 2);
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+                                case ContentAlignment.MiddleLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = -(int)(labelSize.Height / 2);
+                                        break;
+                                    }
+                                case ContentAlignment.MiddleRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = -(int)(labelSize.Height / 2);
+                                        break;
+                                    }
+
+                                case ContentAlignment.TopCenter:
+                                    {
+                                        x0 = -(int)(labelSize.Width / 2);
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+                                case ContentAlignment.TopLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+                                case ContentAlignment.TopRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+
+                                case ContentAlignment.MiddleCenter:
+                                default:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = renderPtObjList[n].offY;
+                                        break;
+                                    }
+                            }
                             if (labelPlacementMap.addLabelToMap(Point.Round(renderPtObjList[n].Pt), x0, y0, (int)Math.Round(labelSize.Width * ssm), (int)Math.Round(labelSize.Height * ssm)))
                             {
                                 if (useCustomFontColor)
@@ -5847,6 +6202,8 @@ namespace EGIS.ShapeFileLib
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
             bool renderInterior = true;
@@ -5867,7 +6224,7 @@ namespace EGIS.ShapeFileLib
                 float pointSize = 6f;
                 renderInterior = renderSettings.FillInterior;
                 pointSize = renderSettings.PointSize;
-    
+
                 Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
                 bool useCustomImageSymbols = useCustomRenderSettings && customRenderSettings.UseCustomImageSymbols;
                 bool MercProj = projectionType == ProjectionType.Mercator;
@@ -5955,7 +6312,27 @@ namespace EGIS.ShapeFileLib
                             if (useCustomRenderSettings) renderShape = customRenderSettings.RenderShape(index);
                             if (nextRec->ShapeType != ShapeType.NullShape && actualExtent.Contains(nextRec->X, nextRec->Y) && renderShape)
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 2, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -6008,7 +6385,7 @@ namespace EGIS.ShapeFileLib
 
                                 if (pointSizeInt > 0)
                                 {
-                                    if (recordSelected[index])
+                                    if (recordSelected[index] && !useCustomSelectionSettings)
                                     {
                                         IntPtr tempPen = IntPtr.Zero;
                                         IntPtr tempBrush = IntPtr.Zero;
@@ -6354,6 +6731,8 @@ namespace EGIS.ShapeFileLib
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
             bool renderInterior = true;
@@ -6521,23 +6900,37 @@ namespace EGIS.ShapeFileLib
                                     {
                                         if (pointSize > 0)
                                         {
-                                            if (renderInterior)
-                                            {
-                                                if (recordSelected[index])
-                                                {
-                                                    g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
-                                                }
-                                                else
-                                                {
-                                                    g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
-                                                }
-                                            }
                                             if (recordSelected[index])
                                             {
+                                                if (useCustomSelectionSettings)
+                                                {
+                                            if (renderInterior)
+                                            {
+                                                        using (SolidBrush customBrush = new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                                {
+                                                            g.FillEllipse(customBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                        }
+                                                }
+                                                    using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                {
+                                                        g.DrawEllipse(customPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                }
+                                            }
+                                                else
+                                                {
+                                                    if (renderInterior)
+                                            {
+                                                        g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
                                                 g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                            }
                                             }
                                             else
                                             {
+                                                if (renderInterior)
+                                                {
+                                                    g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                }
                                                 g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
                                             }
                                         }
@@ -6593,6 +6986,12 @@ namespace EGIS.ShapeFileLib
                     float ssm = shadowText ? 0.8f : 1f;
                     Color currentFontColor = renderSettings.FontColor;
                     bool useCustomFontColor = customRenderSettings != null;
+                    ContentAlignment labelLocation = ContentAlignment.MiddleCenter; // use default location
+                    if (useCustomRenderSettings)
+                    {
+                        labelLocation = customRenderSettings.LabelLocation;
+                    }
+                    int x0, y0;
                     for (int n = 0; n < count; n++)
                     {
                         string strLabel;
@@ -6601,8 +7000,67 @@ namespace EGIS.ShapeFileLib
                         if (strLabel.Length > 0)
                         {
                             SizeF labelSize = g.MeasureString(strLabel, renderSettings.Font);
-                            int x0 = renderPtObjList[n].offX;
-                            int y0 = renderPtObjList[n].offY;
+                            switch (labelLocation)
+                            {
+                                case ContentAlignment.BottomLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+                                case ContentAlignment.BottomRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+
+                                case ContentAlignment.BottomCenter:
+                                    {
+                                        x0 = -(int)(labelSize.Width / 2);
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+                                case ContentAlignment.MiddleLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = -(int)(labelSize.Height / 2);
+                                        break;
+                                    }
+                                case ContentAlignment.MiddleRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = -(int)(labelSize.Height / 2);
+                                        break;
+                                    }
+
+                                case ContentAlignment.TopCenter:
+                                    {
+                                        x0 = -(int)(labelSize.Width / 2);
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+                                case ContentAlignment.TopLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+                                case ContentAlignment.TopRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+
+                                case ContentAlignment.MiddleCenter:
+                                default:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = renderPtObjList[n].offY;
+                                        break;
+                                    }
+                            }
                             if (labelPlacementMap.addLabelToMap(Point.Round(renderPtObjList[n].Pt), x0, y0, (int)Math.Round(labelSize.Width * ssm), (int)Math.Round(labelSize.Height * ssm)))
                             {
                                 if (useCustomFontColor)
@@ -6668,6 +7126,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -6779,7 +7239,27 @@ namespace EGIS.ShapeFileLib
                             if (useCustomRenderSettings) renderShape = customRenderSettings.RenderShape(index);
                             if (nextRec->ShapeType != ShapeType.NullShape && actualExtent.IntersectsWith(nextRec->bounds.ToRectangleD()) && renderShape)                            
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 2, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -6829,7 +7309,7 @@ namespace EGIS.ShapeFileLib
 
                                     if (pointSizeInt > 0)
                                     {
-                                        if (recordSelected[index])
+                                        if (recordSelected[index] && !useCustomSelectionSettings)
                                         {
                                             IntPtr tempPen = IntPtr.Zero;
                                             IntPtr tempBrush = IntPtr.Zero;
@@ -7019,6 +7499,23 @@ namespace EGIS.ShapeFileLib
                         return true;
                     }
                     
+                }
+            }
+            return false;
+        }
+
+        public override bool IntersectPolygon(int recordIndex, PointD[] polygon, Stream shapeFileStream)
+        {
+            List<PointD[]> pts = GetShapeDataD(recordIndex, shapeFileStream);
+            if (pts != null && pts.Count > 0)
+            {
+                for (int n = pts[0].Length - 1; n >= 0; --n)
+                {
+                    if (GeometryAlgorithms.PointInPolygon(polygon, pts[0][n].X, pts[0][n].X))
+                    {
+                        return true;
+                    }
+
                 }
             }
             return false;
@@ -7225,6 +7722,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -7394,23 +7893,37 @@ namespace EGIS.ShapeFileLib
                                     {
                                         if (pointSize > 0)
                                         {
-                                            if (renderInterior)
-                                            {
-                                                if (recordSelected[index])
-                                                {
-                                                    g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
-                                                }
-                                                else
-                                                {
-                                                    g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
-                                                }
-                                            }
                                             if (recordSelected[index])
                                             {
+                                                if (useCustomSelectionSettings)
+                                                {
+                                            if (renderInterior)
+                                            {
+														using (SolidBrush customBrush = new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                                {
+															g.FillEllipse(customBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+														}
+                                                }
+                                                    using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                {
+                                                        g.DrawEllipse(customPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                }
+                                            }
+                                                else
+                                                {
+                                                    if (renderInterior)
+                                            {
+                                                        g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
                                                 g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                            }
                                             }
                                             else
                                             {
+                                                if (renderInterior)
+                                                {
+                                                    g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                }
                                                 g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
                                             }
                                         }
@@ -7424,7 +7937,17 @@ namespace EGIS.ShapeFileLib
                                         g.DrawImage(symbol, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1));
                                         if (recordSelected[index])
                                         {
+                                            if (useCustomSelectionSettings)
+                                            {
+                                                using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                {
+                                                    g.DrawRectangle(customPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                                }
+                                            }
+                                            else
+                                            {
                                             g.DrawRectangle(selectPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                        }
                                         }
                                         if (labelFields)
                                         {
@@ -7466,6 +7989,12 @@ namespace EGIS.ShapeFileLib
                     float ssm = shadowText ? 0.8f : 1f;
                     Color currentFontColor = renderSettings.FontColor;
                     bool useCustomFontColor = customRenderSettings != null;
+                    ContentAlignment labelLocation = ContentAlignment.MiddleCenter; // use default location
+                    if (useCustomRenderSettings)
+                    {
+                        labelLocation = customRenderSettings.LabelLocation;
+                    }
+                    int x0, y0;
                     for (int n = 0; n < count; n++)
                     {
                         string strLabel;
@@ -7474,8 +8003,67 @@ namespace EGIS.ShapeFileLib
                         if (!string.IsNullOrEmpty(strLabel))
                         {
                             SizeF labelSize = g.MeasureString(strLabel, renderSettings.Font);
-                            int x0 = renderPtObjList[n].offX;
-                            int y0 = renderPtObjList[n].offY;
+                            switch (labelLocation)
+                            {
+                                case ContentAlignment.BottomLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+                                case ContentAlignment.BottomRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+
+                                case ContentAlignment.BottomCenter:
+                                    {
+                                        x0 = -(int)(labelSize.Width / 2);
+                                        y0 = -renderPtObjList[n].offY;
+                                        break;
+                                    }
+                                case ContentAlignment.MiddleLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = -(int)(labelSize.Height / 2);
+                                        break;
+                                    }
+                                case ContentAlignment.MiddleRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = -(int)(labelSize.Height / 2);
+                                        break;
+                                    }
+
+                                case ContentAlignment.TopCenter:
+                                    {
+                                        x0 = -(int)(labelSize.Width / 2);
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+                                case ContentAlignment.TopLeft:
+                                    {
+                                        x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+                                case ContentAlignment.TopRight:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                        break;
+                                    }
+
+                                case ContentAlignment.MiddleCenter:
+                                default:
+                                    {
+                                        x0 = renderPtObjList[n].offX;
+                                        y0 = renderPtObjList[n].offY;
+                                        break;
+                                    }
+                            }
                             if (labelPlacementMap.addLabelToMap(Point.Round(renderPtObjList[n].Pt), x0, y0, (int)Math.Round(labelSize.Width * ssm), (int)Math.Round(labelSize.Height * ssm)))
                             {
                                 if (useCustomFontColor)
@@ -7540,6 +8128,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -7561,7 +8151,7 @@ namespace EGIS.ShapeFileLib
                 float pointSize = 6f;
                 renderInterior = renderSettings.FillInterior;
                 pointSize = renderSettings.PointSize;
-               
+
                 Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
                 bool useCustomImageSymbols = useCustomRenderSettings && customRenderSettings.UseCustomImageSymbols;
                 bool MercProj = projectionType == ProjectionType.Mercator;
@@ -7650,7 +8240,27 @@ namespace EGIS.ShapeFileLib
                             if (useCustomRenderSettings) renderShape = customRenderSettings.RenderShape(index);
                             if (nextRec->ShapeType != ShapeType.NullShape && actualExtent.IntersectsWith(nextRec->bounds.ToRectangleD()) && renderShape)
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 2, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -7700,7 +8310,7 @@ namespace EGIS.ShapeFileLib
 
                                     if (pointSizeInt > 0)
                                     {
-                                        if (recordSelected[index])
+                                        if (recordSelected[index] && !useCustomSelectionSettings)
                                         {
                                             IntPtr tempPen = IntPtr.Zero;
                                             IntPtr tempBrush = IntPtr.Zero;
@@ -7895,6 +8505,23 @@ namespace EGIS.ShapeFileLib
             return false;
         }
 
+        public override bool IntersectPolygon(int recordIndex, PointD[] polygon, Stream shapeFileStream)
+        {
+            List<PointD[]> pts = GetShapeDataD(recordIndex, shapeFileStream);
+            if (pts != null && pts.Count > 0)
+            {
+                for (int n = pts[0].Length - 1; n >= 0; --n)
+                {
+                    if (GeometryAlgorithms.PointInPolygon(polygon, pts[0][n].X, pts[0][n].X))
+                    {
+                        return true;
+                    }
+
+                }
+            }
+            return false;
+        }
+
 
         public override double GetDistanceToShape(int shapeIndex, PointD centre, double radius, System.IO.Stream shapeFileStream)
         {
@@ -8063,6 +8690,7 @@ namespace EGIS.ShapeFileLib
 			Pen arrowPen = null;
 			bool drawArrows = false;
 			int arrowLength=50;
+            int arrowWidth = 1;
 
             IntPtr fileMappingPtr = IntPtr.Zero;
             if (MapFilesInMemory && (shapeFileStream is FileStream)) fileMappingPtr = NativeMethods.MapFile((FileStream)shapeFileStream);
@@ -8118,9 +8746,19 @@ namespace EGIS.ShapeFileLib
                     PointD br = SFRecordCol.ProjectionToLL(new PointD(actualExtent.Right, actualExtent.Bottom));
                     actualExtent = RectangleD.FromLTRB(tl.X, tl.Y, br.X, br.Y);
                 }
-                ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
+                ICustomRenderSettings customRenderSettings = null;
+                if (renderSettings != null)
+                {
+                    customRenderSettings = renderSettings.CustomRenderSettings;
+                }
                 bool useCustomRenderSettings = (customRenderSettings != null);
-                bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
+                ICustomSelectionSettings customSelectionSettings = null;
+                if (renderSettings != null)
+                {
+                    customSelectionSettings = renderSettings.CustomSelectionSettings;
+                }
+                bool useCustomSelectionSettings = (customSelectionSettings != null);
+				bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
                 bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
                 bool renderDuplicateFields = (labelFields && renderSettings.RenderDuplicateFields);
                 const bool usePolySimplificationLabeling = true;
@@ -8147,7 +8785,7 @@ namespace EGIS.ShapeFileLib
 
 				if (renderSettings.DrawDirectionArrows && (renderSettings.DirectionArrowMinZoomLevel < 0 || scaleX >= renderSettings.DirectionArrowMinZoomLevel) )
 				{
-					int arrowWidth = Math.Max(1,Math.Min(renderSettings.DirectionArrowWidth, 50));
+					arrowWidth = Math.Max(1,Math.Min(renderSettings.DirectionArrowWidth, 50));
 					arrowPen = new Pen(renderSettings.DirectionArrowColor, arrowWidth);
 					arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(3, 6);
 					drawArrows = true;
@@ -8282,6 +8920,13 @@ namespace EGIS.ShapeFileLib
                                                         selectPen.DashStyle = renderSettings.LineDashStyle;
                                                     }
                                                 }
+
+                                                if (drawArrows)
+                                                {
+                                                    arrowPen = new Pen(customRenderSettings.GetRecordDirectionArrowColor(index), arrowWidth);
+                                                    arrowLength = renderSettings.PointSize;
+                                                    arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(arrowLength, arrowLength);
+                                                }
                                             }
 
                                             for (int partNum = 0; partNum < numParts; partNum++)
@@ -8363,9 +9008,19 @@ namespace EGIS.ShapeFileLib
                                                 foreach (var partPoints in pointList)
                                                 {
                                                     pts = partPoints;
-                                                    if (recordSelected[index] && selectPen != null)
+                                                    if (recordSelected[index] && ((selectPen != null) || useCustomSelectionSettings))
+                                                    {
+                                                        if (useCustomSelectionSettings)
+                                                        {
+                                                            using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                            {
+                                                                g.DrawLines(customPen, pts);
+                                                            }
+                                                        }
+                                                        else
                                                     {
                                                         g.DrawLines(selectPen, pts);
+                                                    }
                                                     }
                                                     else
                                                     {
@@ -8590,9 +9245,18 @@ namespace EGIS.ShapeFileLib
                 PointD br = SFRecordCol.ProjectionToLL(new PointD(actualExtent.Right, actualExtent.Bottom));
                 actualExtent = RectangleD.FromLTRB(tl.X, tl.Y, br.X, br.Y);
             }
-
-            ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
+            ICustomRenderSettings customRenderSettings = null;
+            if (renderSettings != null)
+            {
+                customRenderSettings = renderSettings.CustomRenderSettings;
+            }
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = null;
+            if (renderSettings != null)
+            {
+                customSelectionSettings = renderSettings.CustomSelectionSettings;
+            }
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);            
             bool renderDuplicateFields = (labelFields && renderSettings.RenderDuplicateFields);
@@ -8724,7 +9388,22 @@ namespace EGIS.ShapeFileLib
 
 
 
-                                        if (useCustomRenderSettings)
+                                        if (useCustomSelectionSettings && recordSelected[index])
+                                        {
+                                            Color customColor = (paintCount == 0) ? customSelectionSettings.GetOutlineColor(index) : customSelectionSettings.GetFillColor(index);
+                                            if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                            {
+                                                penStyle = NativeMethods.PS_SOLID;
+                                                if (renderSettings.LineType == LineType.Solid)
+                                                {
+                                                    penStyle = (int)renderSettings.LineDashStyle;
+                                                }
+                                                gdiPen = NativeMethods.CreatePen(penStyle, (paintCount == 0) ? penWidth + 4 : penWidth, ColorToGDIColor(customColor));
+                                                NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                                currentPenColor = customColor;
+                                            }
+                                        }
+                                        else if (useCustomRenderSettings)
                                         {
                                             Color customColor = (paintCount == 0) ? customRenderSettings.GetRecordOutlineColor(index) : customRenderSettings.GetRecordFillColor(index);
                                             if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -8787,7 +9466,7 @@ namespace EGIS.ShapeFileLib
                                                 }
                                             }
                                             //render the lines
-                                            if (recordSelected[index])
+                                            if (recordSelected[index] && !useCustomSelectionSettings)
                                             {
                                                 IntPtr tempPen = IntPtr.Zero;
                                                 try
@@ -9024,6 +9703,12 @@ namespace EGIS.ShapeFileLib
                 }
             }
             return false;
+        }
+
+        public override bool IntersectPolygon(int recordIndex, PointD[] polygon, Stream shapeFileStream)
+        {
+            List<PointD[]> pts = GetShapeDataD(recordIndex, shapeFileStream);
+            return NativeMethods.PolyLinePolygonIntersect(pts[0], pts[0].Length, polygon, polygon.Length);
         }
 
 
@@ -9296,6 +9981,7 @@ namespace EGIS.ShapeFileLib
 			Pen arrowPen = null;
 			bool drawArrows = false;
 			int arrowLength = 50;
+            int arrowWidth = 1;
 
 			IntPtr fileMappingPtr = IntPtr.Zero;
             if (MapFilesInMemory && (shapeFileStream is FileStream)) fileMappingPtr = NativeMethods.MapFile((FileStream)shapeFileStream);
@@ -9351,8 +10037,19 @@ namespace EGIS.ShapeFileLib
                     PointD br = SFRecordCol.ProjectionToLL(new PointD(actualExtent.Right, actualExtent.Bottom));
                     actualExtent = RectangleD.FromLTRB(tl.X, tl.Y, br.X, br.Y);
                 }
-                ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
+                ICustomRenderSettings customRenderSettings = null;
+                if (renderSettings != null)
+                {
+                    customRenderSettings = renderSettings.CustomRenderSettings;
+                }
                 bool useCustomRenderSettings = (customRenderSettings != null);
+                ICustomSelectionSettings customSelectionSettings = null;
+                if (renderSettings != null)
+                {
+                    customSelectionSettings = renderSettings.CustomSelectionSettings;
+                }
+                bool useCustomSelectionSettings = (customSelectionSettings != null);
+
                 bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
                 bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
                 bool renderDuplicateFields = (labelFields && renderSettings.RenderDuplicateFields);
@@ -9377,7 +10074,7 @@ namespace EGIS.ShapeFileLib
 
 				if (renderSettings.DrawDirectionArrows && (renderSettings.DirectionArrowMinZoomLevel < 0 || scaleX >= renderSettings.DirectionArrowMinZoomLevel))
 				{
-					int arrowWidth = Math.Max(1, Math.Min(renderSettings.DirectionArrowWidth, 50));
+					arrowWidth = Math.Max(1, Math.Min(renderSettings.DirectionArrowWidth, 50));
 					arrowPen = new Pen(renderSettings.DirectionArrowColor, arrowWidth);
 					arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(3, 6);
 					drawArrows = true;
@@ -9512,6 +10209,13 @@ namespace EGIS.ShapeFileLib
                                                     gdiplusPen.DashStyle = renderSettings.LineDashStyle;
                                                 }
                                             }
+
+                                            if (drawArrows)
+                                            {
+                                                arrowPen = new Pen(customRenderSettings.GetRecordDirectionArrowColor(index), arrowWidth);
+                                                arrowLength = renderSettings.PointSize;
+                                                arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(arrowLength, arrowLength);
+                                            }
                                         }
 
 										for (int partNum = 0; partNum < numParts; partNum++)
@@ -9595,10 +10299,20 @@ namespace EGIS.ShapeFileLib
 											{
 												pts = partPoints;
 
-												if (recordSelected[index] && selectPen != null)
+												if (recordSelected[index] && ((selectPen != null) || useCustomSelectionSettings))
+                                                {
+                                                    if (useCustomSelectionSettings)
+                                                    {
+                                                        using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                        {
+                                                            g.DrawLines(customPen, pts);
+                                                        }
+                                                    }
+                                                    else
 												{
 													g.DrawLines(selectPen, pts);
 												}
+                                                }
 												else
 												{
 													g.DrawLines(gdiplusPen, pts);
@@ -9833,8 +10547,18 @@ namespace EGIS.ShapeFileLib
                 PointD br = SFRecordCol.ProjectionToLL(new PointD(testExtent.Right, testExtent.Bottom));
                 testExtent = RectangleD.FromLTRB(tl.X, tl.Y, br.X, br.Y);
             }
-            ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
+            ICustomRenderSettings customRenderSettings = null;
+            if (renderSettings != null)
+            {
+                customRenderSettings = renderSettings.CustomRenderSettings;
+            }
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = null;
+            if (renderSettings != null)
+            {
+                customSelectionSettings = renderSettings.CustomSelectionSettings;
+            }
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
             bool renderDuplicateFields = (labelFields && renderSettings.RenderDuplicateFields);
@@ -9958,7 +10682,17 @@ namespace EGIS.ShapeFileLib
                                     {
                                         int numParts = nextRec->NumParts;
                                         
-                                        if (useCustomRenderSettings)
+                                        if (useCustomSelectionSettings && recordSelected[index])
+                                        {
+                                            Color customColor = (paintCount == 0) ? customSelectionSettings.GetOutlineColor(index) : customSelectionSettings.GetFillColor(index);
+                                            if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                            {
+                                                gdiPen = NativeMethods.CreatePen((int)renderSettings.LineDashStyle, (paintCount == 0) ? penWidth + 4 : penWidth, ColorToGDIColor(customColor));
+                                                NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                                currentPenColor = customColor;
+                                            }
+                                        }
+                                        else if (useCustomRenderSettings)
                                         {
                                             Color customColor = (paintCount == 0) ? customRenderSettings.GetRecordOutlineColor(index) : customRenderSettings.GetRecordFillColor(index);
                                             if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -10020,7 +10754,7 @@ namespace EGIS.ShapeFileLib
                                                 }
                                             }
 
-                                            if (recordSelected[index])
+                                            if (recordSelected[index] && !useCustomSelectionSettings)
                                             {
                                                 IntPtr tempPen = IntPtr.Zero;
                                                 try
@@ -10248,6 +10982,12 @@ namespace EGIS.ShapeFileLib
                 }
             }
             return false;
+        }
+
+        public override bool IntersectPolygon(int recordIndex, PointD[] polygon, Stream shapeFileStream)
+        {
+            List<PointD[]> pts = GetShapeDataD(recordIndex, shapeFileStream);
+            return NativeMethods.PolyLinePolygonIntersect(pts[0], pts[0].Length, polygon, polygon.Length);
         }
 
         public override unsafe double GetDistanceToShape(int shapeIndex, PointD centre, double radius, System.IO.Stream shapeFileStream)
@@ -10573,7 +11313,7 @@ namespace EGIS.ShapeFileLib
                 // when we render the first record
                 simplificationDistance = 0;
             }
-           
+
             Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
 
             bool MercProj = projectionType == ProjectionType.Mercator;
@@ -10588,6 +11328,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
 
@@ -10767,11 +11509,28 @@ namespace EGIS.ShapeFileLib
                                 }
                                 if (recordSelected[index])
                                 {
+                                    if (useCustomSelectionSettings)
+                                    {
+                                        if (renderInterior)
+                                        {
+                                            using (SolidBrush customBrush = new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                            {
+                                                g.FillPath(customBrush, gp);
+                                            }
+                                        }
+                                        using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                        {
+                                            g.DrawPath(customPen, gp);
+                                        }
+                                    }
+                                    else
+                                    {
                                     if (renderInterior)
                                     {
                                         g.FillPath(selectBrush, gp);
                                     }
                                     g.DrawPath(selectPen, gp);
+                                }
                                 }
                                 else
                                 {
@@ -10904,7 +11663,7 @@ namespace EGIS.ShapeFileLib
                 //the actual intersecting extent in the shapefile CRS
                 actualExtent = extent;
             }
-            
+
             Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
             bool MercProj = projectionType == ProjectionType.Mercator;
             if (MercProj)
@@ -10917,6 +11676,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
             if (renderSettings != null) renderInterior = renderSettings.FillInterior;
@@ -11000,7 +11761,27 @@ namespace EGIS.ShapeFileLib
                             }
                             fixed (double* simplifiedDataPtr = simplifiedDataBuffer)
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 4, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -11067,7 +11848,7 @@ namespace EGIS.ShapeFileLib
                                         //GetPointsRemoveDuplicatesD(dataPtr, 8 + dataOffset + (nextRec->PartOffsets[partNum] << 4), numPoints, ref offX, ref offY, ref scaleX, sharedPointBuffer, ref usedPoints, MercProj);
                                         GetPointsRemoveDuplicatesD((byte*)simplifiedDataPtr,0, usedPoints, ref offX, ref offY, ref scaleX, sharedPointBuffer, ref usedPoints, MercProj);
                                     }
-                                    if (recordSelected[index])
+                                    if (recordSelected[index] && !useCustomSelectionSettings)
                                     {
                                         IntPtr tempPen = IntPtr.Zero;
                                         IntPtr tempBrush = IntPtr.Zero;
@@ -11300,6 +12081,12 @@ namespace EGIS.ShapeFileLib
                 return intersectsNonHolePolygon;
             }
             //return false;
+        }
+
+        public override bool IntersectPolygon(int recordIndex, PointD[] polygon, Stream shapeFileStream)
+        {
+            List<PointD[]> pts = GetShapeDataD(recordIndex, shapeFileStream);
+            return NativeMethods.PolygonPolygonIntersect(pts[0], pts[0].Length, polygon, polygon.Length);
         }
        
 
@@ -11606,6 +12393,7 @@ namespace EGIS.ShapeFileLib
 			Pen arrowPen = null;
 			bool drawArrows = false;
 			int arrowLength = 50;
+            int arrowWidth = 1;
 
 			IntPtr fileMappingPtr = IntPtr.Zero;
             if (MapFilesInMemory && (shapeFileStream is FileStream)) fileMappingPtr = NativeMethods.MapFile((FileStream)shapeFileStream);
@@ -11670,8 +12458,18 @@ namespace EGIS.ShapeFileLib
                     PointD br = SFRecordCol.ProjectionToLL(new PointD(actualExtent.Right, actualExtent.Bottom));
                     actualExtent = RectangleD.FromLTRB(tl.X, tl.Y, br.X, br.Y);
                 }
-                ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
+                ICustomRenderSettings customRenderSettings = null;
+                if (renderSettings != null)
+                {
+                    customRenderSettings = renderSettings.CustomRenderSettings;
+                }
                 bool useCustomRenderSettings = (customRenderSettings != null);
+                ICustomSelectionSettings customSelectionSettings = null;
+                if (renderSettings != null)
+                {
+                    customSelectionSettings = renderSettings.CustomSelectionSettings;
+                }
+                bool useCustomSelectionSettings = (customSelectionSettings != null);
                 bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
                 bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
                 bool renderDuplicateFields = (labelFields && renderSettings.RenderDuplicateFields);
@@ -11695,7 +12493,7 @@ namespace EGIS.ShapeFileLib
 
 				if (renderSettings.DrawDirectionArrows && (renderSettings.DirectionArrowMinZoomLevel < 0 || scaleX >= renderSettings.DirectionArrowMinZoomLevel))
 				{
-					int arrowWidth = Math.Max(1, Math.Min(renderSettings.DirectionArrowWidth, 50));
+					arrowWidth = Math.Max(1, Math.Min(renderSettings.DirectionArrowWidth, 50));
 					arrowPen = new Pen(renderSettings.DirectionArrowColor, arrowWidth);
 					arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(3, 6);
 					drawArrows = true;
@@ -11834,6 +12632,13 @@ namespace EGIS.ShapeFileLib
                                                         selectPen.DashStyle = renderSettings.LineDashStyle;
                                                     }
                                                 }
+
+                                                if (drawArrows)
+                                                {
+                                                    arrowPen = new Pen(customRenderSettings.GetRecordDirectionArrowColor(index), arrowWidth);
+                                                    arrowLength = renderSettings.PointSize;
+                                                    arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(arrowLength, arrowLength);
+                                                }
                                             }
 
                                             for (int partNum = 0; partNum < numParts; partNum++)
@@ -11917,10 +12722,20 @@ namespace EGIS.ShapeFileLib
 												{
 													pts = partPoints;
 
-													if (recordSelected[index] && selectPen != null)
+													if (recordSelected[index] && ((selectPen != null) || useCustomSelectionSettings))
+                                                    {
+                                                        if (useCustomSelectionSettings)
+                                                        {
+                                                            using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                            {
+                                                                g.DrawLines(customPen, pts);
+                                                            }
+                                                        }
+                                                        else
 													{
 														g.DrawLines(selectPen, pts);
 													}
+                                                    }
 													else
 													{
 														g.DrawLines(gdiplusPen, pts);
@@ -12154,8 +12969,18 @@ namespace EGIS.ShapeFileLib
                 PointD br = SFRecordCol.ProjectionToLL(new PointD(actualExtent.Right, actualExtent.Bottom));
                 actualExtent = RectangleD.FromLTRB(tl.X, tl.Y, br.X, br.Y);
             }
-            ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
+            ICustomRenderSettings customRenderSettings = null;
+            if (renderSettings != null)
+            {
+                customRenderSettings = renderSettings.CustomRenderSettings;
+            }
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = null;
+            if (renderSettings != null)
+            {
+                customSelectionSettings = renderSettings.CustomSelectionSettings;
+            }
+            bool useCustomSelectionSettings = (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
             bool renderDuplicateFields = (labelFields && renderSettings.RenderDuplicateFields);
@@ -12323,7 +13148,17 @@ namespace EGIS.ShapeFileLib
                                         //    }
                                         //}
 
-                                        if (useCustomRenderSettings)
+                                        if (useCustomSelectionSettings && recordSelected[index])
+                                        {
+                                            Color customColor = (paintCount == 0) ? customSelectionSettings.GetOutlineColor(index) : customSelectionSettings.GetFillColor(index);
+                                            if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                            {
+                                                gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, (paintCount == 0) ? penWidth + 4 : penWidth, ColorToGDIColor(customColor));
+                                                NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                                currentPenColor = customColor;
+                                            }
+                                        }
+                                        else if (useCustomRenderSettings)
                                         {
                                             Color customColor = (paintCount == 0) ? customRenderSettings.GetRecordOutlineColor(index) : customRenderSettings.GetRecordFillColor(index);
                                             if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -12377,7 +13212,7 @@ namespace EGIS.ShapeFileLib
                                                 }
                                             }
 
-                                            if (recordSelected[index])
+                                            if (recordSelected[index] && !useCustomSelectionSettings)
                                             {
                                                 IntPtr tempPen = IntPtr.Zero;
                                                 try
@@ -12608,6 +13443,12 @@ namespace EGIS.ShapeFileLib
                 }
             }
             return false;
+        }
+
+        public override bool IntersectPolygon(int recordIndex, PointD[] polygon, Stream shapeFileStream)
+        {
+            List<PointD[]> pts = GetShapeDataD(recordIndex, shapeFileStream);
+            return NativeMethods.PolyLinePolygonIntersect(pts[0], pts[0].Length, polygon, polygon.Length);
         }
 
         public override unsafe double GetDistanceToShape(int shapeIndex, PointD centre, double radius, System.IO.Stream shapeFileStream)
@@ -13161,6 +14002,21 @@ namespace EGIS.ShapeFileLib
                 names[n] = DbfRecordHeader.GetFieldDescriptions()[n].FieldName;
             }
             return names;
+        }
+
+        /// <summary>
+        /// Utility method to return the names of the fields in the DBF file
+        /// Internally extracts the field names from the DBFRecordHeader
+        /// </summary>
+        /// <returns></returns>
+        public DbfFieldType[] GetFieldTypes()
+        {
+            DbfFieldType[] result = new DbfFieldType[DbfRecordHeader.FieldCount];
+            for (int n = result.Length - 1; n >= 0; n--)
+            {
+                result[n] = DbfRecordHeader.GetFieldDescriptions()[n].FieldType;
+            }
+            return result;
         }
 
         private void CreateFieldIndex(int fieldIndex)
