@@ -1,4 +1,6 @@
-#load "../BuildServerConfig/Cake/addinsPlusNuget.cake"
+#tool nuget:?package=NUnit.ConsoleRunner&version=3.12.0
+#addin nuget:?package=Cake.FileHelpers&version=3.4.0
+#addin nuget:?package=Cake.ExtendedNuGet&version=3.0.0
 
 var solutionName = "EasyGISDesktop";
 
