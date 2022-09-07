@@ -2096,6 +2096,58 @@ namespace egis
 		//    Console.Out.WriteLine("esri {0} is equivalent:{1}", _2015Crs.Id, wgs84Crs.IsEquivalent(_2015Crs));
 		//    Console.Out.WriteLine("qgis {0} is equivalent:{1}", qgisCrs.Id, wgs84Crs.IsEquivalent(qgisCrs));
 		//}
-	}
+        private void sfMap1_Paint(object sender, PaintEventArgs e)
+        {
+            if (sfMap1.ShapeFileCount > 0)
+            {
+                if (!sfMap1[0].CoordinateReferenceSystem.IsEquivalent(sfMap1.MapCoordinateReferenceSystem))
+                {
+                    using (ICoordinateTransformation coordinateTransformation =
+                           EGIS.Projections.CoordinateReferenceSystemFactory.Default.CreateCoordinateTrasformation(
+                               sfMap1[0].CoordinateReferenceSystem, sfMap1.MapCoordinateReferenceSystem))
+                    {
+                        
+                        PlotOverlayCircles(e.Graphics, coordinateTransformation);
+                    }
+                }
+                else
+                {
+                    PlotOverlayCircles(e.Graphics, null);
+                }
+
+                PlotLegend(e.Graphics);
+            }
+        }
+
+        void PlotLegend(Graphics g)
+        {
+            double pixPerM = sfMap1.ClientRectangle.Width / sfMap1.VisibleExtent.Width;
+
+            g.DrawLine(Pens.Black, 50, 50, 50 + (int)(pixPerM * 1000), 50);
+        }
+
+        void PlotOverlayCircles(Graphics g, ICoordinateTransformation converter)
+        {
+            Point pt;
+            using (Pen p = new Pen(Color.Yellow, 5))
+            {
+                for (int i = 0; i < sfMap1[0].RecordCount; i++)
+                {
+                    if (sfMap1[0].IsRecordVisible(i))
+                    {
+                        if (converter != null)
+                        {
+                            pt = sfMap1.GisPointToPixelCoord(converter.Transform(sfMap1[0].GetShapeDataD(i)[0][0]));
+                        }
+                        else
+                        {
+                            pt = sfMap1.GisPointToPixelCoord(sfMap1[0].GetShapeDataD(i)[0][0]);
+                        }
+                        g.DrawEllipse(p, pt.X - 50, pt.Y - 50, 100, 100);
+                    }
+                }
+            }
+        }
+    }
 
 }
