@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <!--<TargetFramework>net6.0-windows</TargetFramework>-->
-    <TargetFrameworks>net47;net6.0-windows</TargetFrameworks>    
+    <TargetFrameworks>net472;net47;net6.0-windows</TargetFrameworks>    
     <OutputType>Library</OutputType>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>egis.snk</AssemblyOriginatorKeyFile>
