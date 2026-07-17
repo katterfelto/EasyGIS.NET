@@ -140,5 +140,20 @@ namespace EGIS.ShapeFileLib
         {
             return this.renderSettings.FillColor;
         }
+
+        /// <summary>
+        /// Gets the label location in relation to the object.
+        /// </summary>
+        /// <remarks>
+        /// <para>This is only applied to point objects</para>
+        /// <para>To disable and use default placement set to <c>MiddleCenter</c></para>
+        /// </remarks>
+        public ContentAlignment LabelLocation
+        {
+            get
+            {
+                return ContentAlignment.MiddleCenter;
+            }
+        }
 	}
 }

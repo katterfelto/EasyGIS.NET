@@ -4192,6 +4192,9 @@ namespace EGIS.ShapeFileLib
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (renderSettings != null) && (customRenderSettings != null);
 
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
+
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             Color currentBrushColor = renderSettings.FillColor, currentPenColor = renderSettings.OutlineColor;
@@ -4385,11 +4388,32 @@ namespace EGIS.ShapeFileLib
                                 }
                                 if (recordSelected[index])
                                 {
-                                    if (renderInterior)
+                                    if (useCustomSelectionSettings)
                                     {
-                                        g.FillPath(selectBrush, gp);
+                                        if (renderInterior)
+                                        {
+                                            using (SolidBrush customBrush =
+                                                   new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                            {
+                                                g.FillPath(customBrush, gp);
+                                            }
+                                        }
+
+                                        using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index),
+                                                   2f))
+                                        {
+                                            g.DrawPath(customPen, gp);
+                                        }
                                     }
-                                    g.DrawPath(selectPen, gp);
+                                    else
+                                    {
+                                        if (renderInterior)
+                                        {
+                                            g.FillPath(selectBrush, gp);
+                                        }
+
+                                        g.DrawPath(selectPen, gp);
+                                    }
                                 }
                                 else
                                 {
@@ -4868,6 +4892,8 @@ namespace EGIS.ShapeFileLib
            
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -5024,24 +5050,49 @@ namespace EGIS.ShapeFileLib
                                 {
                                     if (pointSize > 0)
                                     {
-                                        if (renderInterior)
+                                        if (recordSelected[index])
                                         {
-                                            if (recordSelected[index])
+                                            if (useCustomSelectionSettings)
                                             {
-                                                g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                if (renderInterior)
+                                                {
+                                                    using (SolidBrush customBrush =
+                                                           new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                                    {
+                                                        g.FillEllipse(customBrush, pt.X - halfPointSize,
+                                                            pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
+                                                }
+
+                                                using (Pen customPen =
+                                                       new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                {
+                                                    g.DrawEllipse(customPen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                        pointSize, pointSize);
+                                                }
                                             }
                                             else
                                             {
-                                                g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                if (renderInterior)
+                                                {
+                                                    g.FillEllipse(selectBrush, pt.X - halfPointSize,
+                                                        pt.Y - halfPointSize, pointSize, pointSize);
+                                                }
+
+                                                g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                    pointSize, pointSize);
                                             }
-                                        }
-                                        if (recordSelected[index])
-                                        {
-                                            g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
                                         }
                                         else
                                         {
-                                            g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                            if (renderInterior)
+                                            {
+                                                g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                    pointSize, pointSize);
+                                            }
+
+                                            g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                pointSize, pointSize);
                                         }
                                     }
                                     if (labelFields)
@@ -5056,7 +5107,17 @@ namespace EGIS.ShapeFileLib
 									//g.DrawImage(symbol, pt.X, pt.Y);
 									if (recordSelected[index])
                                     {
-                                        g.DrawRectangle(selectPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                        if (useCustomSelectionSettings)
+                                        {
+                                            using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                            {
+                                                g.DrawRectangle(customPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            g.DrawRectangle(selectPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                        }
                                     }
                                     if (labelFields)
                                     {
@@ -5133,6 +5194,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -5244,7 +5307,27 @@ namespace EGIS.ShapeFileLib
                             if (useCustomRenderSettings) renderShape = customRenderSettings.RenderShape(index);
                             if (nextRec->ShapeType != ShapeType.NullShape && actualExtent.Contains(nextRec->X, nextRec->Y) && renderShape)
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 2, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -5611,6 +5694,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -5762,34 +5847,61 @@ namespace EGIS.ShapeFileLib
                                 }
 
                                 PointF pt = new PointF((float)((recPt[0] + offX) * scaleX), (float)((recPt[1] + offY) * scaleY));
-                                
+
                                 if (drawPoint)
                                 {
                                     if (pointSize > 0)
                                     {
-                                        if (renderInterior)
+                                        if (recordSelected[index])
                                         {
-                                            if (recordSelected[index])
+                                            if (useCustomSelectionSettings)
                                             {
-                                                g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                if (renderInterior)
+                                                {
+                                                    using (SolidBrush customBrush =
+                                                           new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                                    {
+                                                        g.FillEllipse(customBrush, pt.X - halfPointSize,
+                                                            pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
+                                                }
+
+                                                using (Pen customPen =
+                                                       new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                {
+                                                    g.DrawEllipse(customPen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                        pointSize, pointSize);
+                                                }
                                             }
                                             else
                                             {
-                                                g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                if (renderInterior)
+                                                {
+                                                    g.FillEllipse(selectBrush, pt.X - halfPointSize,
+                                                        pt.Y - halfPointSize, pointSize, pointSize);
+                                                }
+
+                                                g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                    pointSize, pointSize);
                                             }
-                                        }
-                                        if (recordSelected[index])
-                                        {
-                                            g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
                                         }
                                         else
                                         {
-                                            g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                            if (renderInterior)
+                                            {
+                                                g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                    pointSize, pointSize);
+                                            }
+
+                                            g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                pointSize, pointSize);
                                         }
                                     }
+
                                     if (labelFields)
                                     {
-                                        renderPtObjList.Add(new RenderPtObj(pt, index, (int)halfPointSize + 5, -((int)halfPointSize + 5)));
+                                        renderPtObjList.Add(new RenderPtObj(pt, index, (int)halfPointSize + 5,
+                                            -((int)halfPointSize + 5)));
                                     }
                                 }
                                 else
@@ -5797,7 +5909,17 @@ namespace EGIS.ShapeFileLib
                                     g.DrawImage(symbol, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1));
                                     if (recordSelected[index])
                                     {
-                                        g.DrawRectangle(selectPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                        if (useCustomSelectionSettings)
+                                        {
+                                            using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                            {
+                                                g.DrawRectangle(customPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            g.DrawRectangle(selectPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                        }
                                     }
                                     if (labelFields)
                                     {
@@ -5874,6 +5996,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -5983,7 +6107,27 @@ namespace EGIS.ShapeFileLib
                             if (useCustomRenderSettings) renderShape = customRenderSettings.RenderShape(index);
                             if (nextRec->ShapeType != ShapeType.NullShape && actualExtent.Contains(nextRec->X, nextRec->Y) && renderShape)
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 2, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -6247,6 +6391,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -6404,24 +6550,50 @@ namespace EGIS.ShapeFileLib
                                     {
                                         if (pointSize > 0)
                                         {
-                                            if (renderInterior)
+                                            if (recordSelected[index])
                                             {
-                                                if (recordSelected[index])
+                                                if (useCustomSelectionSettings)
                                                 {
-                                                    g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                    if (renderInterior)
+                                                    {
+                                                        using (SolidBrush customBrush =
+                                                               new SolidBrush(
+                                                                   customSelectionSettings.GetFillColor(index)))
+                                                        {
+                                                            g.FillEllipse(customBrush, pt.X - halfPointSize,
+                                                                pt.Y - halfPointSize, pointSize, pointSize);
+                                                        }
+                                                    }
+
+                                                    using (Pen customPen =
+                                                           new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                    {
+                                                        g.DrawEllipse(customPen, pt.X - halfPointSize,
+                                                            pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
                                                 }
                                                 else
                                                 {
-                                                    g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                    if (renderInterior)
+                                                    {
+                                                        g.FillEllipse(selectBrush, pt.X - halfPointSize,
+                                                            pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
+
+                                                    g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                        pointSize, pointSize);
                                                 }
-                                            }
-                                            if (recordSelected[index])
-                                            {
-                                                g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
                                             }
                                             else
                                             {
-                                                g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                if (renderInterior)
+                                                {
+                                                    g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                        pointSize, pointSize);
+                                                }
+
+                                                g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                    pointSize, pointSize);
                                             }
                                         }
                                         if (labelFields)
@@ -6509,6 +6681,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -6620,7 +6794,27 @@ namespace EGIS.ShapeFileLib
                             if (useCustomRenderSettings) renderShape = customRenderSettings.RenderShape(index);
                             if (nextRec->ShapeType != ShapeType.NullShape && actualExtent.IntersectsWith(nextRec->bounds.ToRectangleD()) && renderShape)                            
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 2, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -7002,6 +7196,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -7161,29 +7357,57 @@ namespace EGIS.ShapeFileLib
                                     {
                                         if (pointSize > 0)
                                         {
-                                            if (renderInterior)
+                                            if (recordSelected[index])
                                             {
-                                                if (recordSelected[index])
+                                                if (useCustomSelectionSettings)
                                                 {
-                                                    g.FillEllipse(selectBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                    if (renderInterior)
+                                                    {
+                                                        using (SolidBrush customBrush =
+                                                               new SolidBrush(
+                                                                   customSelectionSettings.GetFillColor(index)))
+                                                        {
+                                                            g.FillEllipse(customBrush, pt.X - halfPointSize,
+                                                                pt.Y - halfPointSize, pointSize, pointSize);
+                                                        }
+                                                    }
+
+                                                    using (Pen customPen =
+                                                           new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                    {
+                                                        g.DrawEllipse(customPen, pt.X - halfPointSize,
+                                                            pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
                                                 }
                                                 else
                                                 {
-                                                    g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                    if (renderInterior)
+                                                    {
+                                                        g.FillEllipse(selectBrush, pt.X - halfPointSize,
+                                                            pt.Y - halfPointSize, pointSize, pointSize);
+                                                    }
+
+                                                    g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                        pointSize, pointSize);
                                                 }
-                                            }
-                                            if (recordSelected[index])
-                                            {
-                                                g.DrawEllipse(selectPen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
                                             }
                                             else
                                             {
-                                                g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize, pointSize, pointSize);
+                                                if (renderInterior)
+                                                {
+                                                    g.FillEllipse(fillBrush, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                        pointSize, pointSize);
+                                                }
+
+                                                g.DrawEllipse(outlinePen, pt.X - halfPointSize, pt.Y - halfPointSize,
+                                                    pointSize, pointSize);
                                             }
                                         }
+
                                         if (labelFields)
                                         {
-                                            renderPtObjList.Add(new RenderPtObj(pt, index, (int)halfPointSize + 5, -((int)halfPointSize + 5)));
+                                            renderPtObjList.Add(new RenderPtObj(pt, index, (int)halfPointSize + 5,
+                                                -((int)halfPointSize + 5)));
                                         }
                                     }
                                     else
@@ -7191,7 +7415,17 @@ namespace EGIS.ShapeFileLib
                                         g.DrawImage(symbol, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1));
                                         if (recordSelected[index])
                                         {
-                                            g.DrawRectangle(selectPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                            if (useCustomSelectionSettings)
+                                            {
+                                                using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                                {
+                                                    g.DrawRectangle(customPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                                }
+                                            }
+                                            else
+                                            {
+                                                g.DrawRectangle(selectPen, pt.X - (symbolSize.Width >> 1), pt.Y - (symbolSize.Height >> 1), symbolSize.Width, symbolSize.Height);
+                                            }
                                         }
                                         if (labelFields)
                                         {
@@ -7265,6 +7499,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
 
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
@@ -7375,7 +7611,27 @@ namespace EGIS.ShapeFileLib
                             if (useCustomRenderSettings) renderShape = customRenderSettings.RenderShape(index);
                             if (nextRec->ShapeType != ShapeType.NullShape && actualExtent.IntersectsWith(nextRec->bounds.ToRectangleD()) && renderShape)
                             {
-                                if (useCustomRenderSettings)
+                                if (useCustomSelectionSettings && recordSelected[index])
+                                {
+                                    Color customColor = customSelectionSettings.GetOutlineColor(index);
+                                    if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                    {
+                                        gdiPen = NativeMethods.CreatePen(NativeMethods.PS_SOLID, 2, ColorToGDIColor(customColor));
+                                        NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiPen));
+                                        currentPenColor = customColor;
+                                    }
+                                    if (renderInterior)
+                                    {
+                                        customColor = customSelectionSettings.GetFillColor(index);
+                                        if (customColor.ToArgb() != currentBrushColor.ToArgb())
+                                        {
+                                            gdiBrush = NativeMethods.CreateSolidBrush(ColorToGDIColor(customColor));
+                                            NativeMethods.DeleteObject(NativeMethods.SelectObject(dc, gdiBrush));
+                                            currentBrushColor = customColor;
+                                        }
+                                    }
+                                }
+                                else if (useCustomRenderSettings)
                                 {
                                     Color customColor = customRenderSettings.GetRecordOutlineColor(index);
                                     if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -7782,6 +8038,8 @@ namespace EGIS.ShapeFileLib
                 }
                 ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
                 bool useCustomRenderSettings = (customRenderSettings != null);
+                ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+                bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
                 bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
                 bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
                 bool renderDuplicateFields = (labelFields && renderSettings.RenderDuplicateFields);
@@ -7928,7 +8186,34 @@ namespace EGIS.ShapeFileLib
                                             int numParts = nextRec->NumParts;
                                             Point[] pts;
 
-                                            if (useCustomRenderSettings)
+                                            if (useCustomSelectionSettings && recordSelected[index])
+                                            {
+                                                Color customColor = (paintCount == 0) ? customSelectionSettings.GetOutlineColor(index) : customSelectionSettings.GetFillColor(index);
+                                                if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                                {
+                                                    gdiplusPen = new Pen(customColor, penWidth);
+                                                    currentPenColor = customColor;
+                                                    gdiplusPen.EndCap = renderSettings.LineEndCap;// System.Drawing.Drawing2D.LineCap.Round;
+                                                    gdiplusPen.StartCap = renderSettings.LineStartCap;// System.Drawing.Drawing2D.LineCap.Round;
+                                                    gdiplusPen.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
+                                                    if (renderSettings.LineType == LineType.Solid)
+                                                    {
+                                                        gdiplusPen.DashStyle = renderSettings.LineDashStyle;
+                                                        selectPen.DashStyle = renderSettings.LineDashStyle;
+                                                    }
+                                                }
+
+                                                if (useCustomRenderSettings)
+                                                {
+                                                    if (drawArrows)
+                                                    {
+                                                        arrowPen = new Pen(customRenderSettings.GetRecordDirectionArrowColor(index), arrowWidth);
+                                                        arrowLength = renderSettings.PointSize;
+                                                        arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(arrowLength, arrowLength);
+                                                    }
+                                                }
+                                            }
+                                            else if (useCustomRenderSettings)
                                             {
                                                 Color customColor = (paintCount == 0) ? customRenderSettings.GetRecordOutlineColor(index) : customRenderSettings.GetRecordFillColor(index);
                                                 if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -8601,6 +8886,8 @@ namespace EGIS.ShapeFileLib
                 }
                 ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
                 bool useCustomRenderSettings = (customRenderSettings != null);
+                ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+                bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
                 bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
                 bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
                 bool renderDuplicateFields = (labelFields && renderSettings.RenderDuplicateFields);
@@ -8745,7 +9032,33 @@ namespace EGIS.ShapeFileLib
                                         Point[] pts;
 
                                             
-                                        if (useCustomRenderSettings)
+                                        if (useCustomSelectionSettings && recordSelected[index])
+                                        {
+                                            Color customColor = (paintCount == 0) ? customSelectionSettings.GetOutlineColor(index) : customSelectionSettings.GetFillColor(index);
+                                            if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                            {
+                                                gdiplusPen = new Pen(customColor, penWidth);
+                                                currentPenColor = customColor;
+                                                gdiplusPen.EndCap = renderSettings.LineEndCap;// System.Drawing.Drawing2D.LineCap.Round;
+                                                gdiplusPen.StartCap = renderSettings.LineStartCap;// System.Drawing.Drawing2D.LineCap.Round;
+                                                gdiplusPen.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
+                                                if (renderSettings.LineType == LineType.Solid)
+                                                {
+                                                    gdiplusPen.DashStyle = renderSettings.LineDashStyle;
+                                                }
+                                            }
+
+                                            if (useCustomRenderSettings)
+                                            {
+                                                if (drawArrows)
+                                                {
+                                                    arrowPen = new Pen(customRenderSettings.GetRecordDirectionArrowColor(index), arrowWidth);
+                                                    arrowLength = renderSettings.PointSize;
+                                                    arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(arrowLength, arrowLength);
+                                                }
+                                            }
+                                        }
+                                        else if (useCustomRenderSettings)
                                         {
                                             Color customColor = (paintCount == 0) ? customRenderSettings.GetRecordOutlineColor(index) : customRenderSettings.GetRecordFillColor(index);
                                             if (customColor.ToArgb() != currentPenColor.ToArgb())
@@ -9425,6 +9738,8 @@ namespace EGIS.ShapeFileLib
 
             ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
             bool useCustomRenderSettings = (customRenderSettings != null);
+            ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+            bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
             bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
             bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
 
@@ -9500,6 +9815,7 @@ namespace EGIS.ShapeFileLib
                             {
                                 simplificationDistance = CalculateSimplificationDistance(recordBounds, scaleX, coordinateTransformation);
                             }
+
                             fixed (double* simplifiedDataPtr = simplifiedDataBuffer)
                             {
 
@@ -9512,6 +9828,7 @@ namespace EGIS.ShapeFileLib
                                         gdiplusPen.DashStyle = renderSettings.LineDashStyle;
                                         currentPenColor = customColor;
                                     }
+
                                     if (renderInterior)
                                     {
                                         customColor = customRenderSettings.GetRecordFillColor(index);
@@ -9522,6 +9839,7 @@ namespace EGIS.ShapeFileLib
                                         }
                                     }
                                 }
+
                                 int numParts = nextRec->NumParts;
                                 Point[] pts;
                                 System.Drawing.Drawing2D.GraphicsPath gp = new System.Drawing.Drawing2D.GraphicsPath();
@@ -9538,6 +9856,7 @@ namespace EGIS.ShapeFileLib
                                     {
                                         numPoints = nextRec->NumPoints - nextRec->PartOffsets[partNum];
                                     }
+
                                     if (numPoints <= 1)
                                     {
                                         //Console.Out.WriteLine("Skipping Record {0}, Part {1} - {2} point(s)", index, partNum, numPoints);
@@ -9545,7 +9864,10 @@ namespace EGIS.ShapeFileLib
                                     }
 
                                     //reduce the number of points before transforming. x10 performance increase at full zoom for some shapefiles 
-                                    int usedPoints = ReducePoints((double*)(dataPtr + 8 + dataOffset + (nextRec->PartOffsets[partNum] << 4)), numPoints, simplifiedDataPtr, simplificationDistance);
+                                    int usedPoints =
+                                        ReducePoints(
+                                            (double*)(dataPtr + 8 + dataOffset + (nextRec->PartOffsets[partNum] << 4)),
+                                            numPoints, simplifiedDataPtr, simplificationDistance);
 
                                     if (coordinateTransformation != null)
                                     {
@@ -9560,27 +9882,33 @@ namespace EGIS.ShapeFileLib
                                     }
 
 
-                                    pts = GetPointsD((byte*)simplifiedDataPtr, 0, usedPoints, offX, offY, scaleX, scaleY, ref partBounds, MercProj);
+                                    pts = GetPointsD((byte*)simplifiedDataPtr, 0, usedPoints, offX, offY, scaleX,
+                                        scaleY, ref partBounds, MercProj);
 
-                                    if (pts.Length == 3 && pts[0].X == pts[1].X && pts[0].Y == pts[1].Y && pts[0].X == pts[2].X && pts[0].Y == pts[2].Y)
+                                    if (pts.Length == 3 && pts[0].X == pts[1].X && pts[0].Y == pts[1].Y &&
+                                        pts[0].X == pts[2].X && pts[0].Y == pts[2].Y)
                                     {
                                         //ensure the polygon points are not all identical or GDI+ throws an OutOfMemoryException
                                         //if the pen dashstyle is not solid. Also makes tiny polygons visible when zoomed out
-                                        pts[1].Y = pts[1].Y + 1;                                        
+                                        pts[1].Y = pts[1].Y + 1;
                                     }
 
-                                    if (partBounds.IntersectsWith(new Rectangle(0, 0, clientArea.Width, clientArea.Height)))
+                                    if (partBounds.IntersectsWith(new Rectangle(0, 0, clientArea.Width,
+                                            clientArea.Height)))
                                     {
-                                        if (partBounds.Left < -1000 || partBounds.Top < -1000 || partBounds.Right > clientArea.Width + 1000 || partBounds.Bottom > clientArea.Height + 1000)
+                                        if (partBounds.Left < -1000 || partBounds.Top < -1000 ||
+                                            partBounds.Right > clientArea.Width + 1000 ||
+                                            partBounds.Bottom > clientArea.Height + 1000)
                                         {
                                             //clip the polygon to avoid overflow
-                                            GeometryAlgorithms.ClipBounds clipBounds = new GeometryAlgorithms.ClipBounds()
-                                            {
-                                                XMin = 0,
-                                                YMin = 0,
-                                                XMax = clientArea.Width,
-                                                YMax = clientArea.Height
-                                            };
+                                            GeometryAlgorithms.ClipBounds clipBounds =
+                                                new GeometryAlgorithms.ClipBounds()
+                                                {
+                                                    XMin = 0,
+                                                    YMin = 0,
+                                                    XMax = clientArea.Width,
+                                                    YMax = clientArea.Height
+                                                };
                                             List<Point> clippedPoints = new List<Point>();
                                             GeometryAlgorithms.PolygonClip(pts, pts.Length, clipBounds, clippedPoints);
                                             pts = clippedPoints.ToArray();
@@ -9600,15 +9928,33 @@ namespace EGIS.ShapeFileLib
                                         }
 
                                     }
-                                   
+
                                 }
+
                                 if (recordSelected[index])
                                 {
-                                    if (renderInterior)
+                                    if (useCustomSelectionSettings)
                                     {
-                                        g.FillPath(selectBrush, gp);
+                                        if (renderInterior)
+                                        {
+                                            using (SolidBrush customBrush = new SolidBrush(customSelectionSettings.GetFillColor(index)))
+                                            {
+                                                g.FillPath(customBrush, gp);
+                                            }
+                                        }
+                                        using (Pen customPen = new Pen(customSelectionSettings.GetOutlineColor(index), 2f))
+                                        {
+                                            g.DrawPath(customPen, gp);
+                                        }
                                     }
-                                    g.DrawPath(selectPen, gp);
+                                    else
+                                    {
+                                        if (renderInterior)
+                                        {
+                                            g.FillPath(selectBrush, gp);
+                                        }
+                                        g.DrawPath(selectPen, gp);
+                                    }
                                 }
                                 else
                                 {
@@ -10139,6 +10485,8 @@ namespace EGIS.ShapeFileLib
                 }
                 ICustomRenderSettings customRenderSettings = renderSettings.CustomRenderSettings;
                 bool useCustomRenderSettings = (customRenderSettings != null);
+                ICustomSelectionSettings customSelectionSettings = renderSettings.CustomSelectionSettings;
+                bool useCustomSelectionSettings = (renderSettings != null) && (customSelectionSettings != null);
                 bool useCustomLabels = useCustomRenderSettings && customRenderSettings.UseCustomRecordLabels;
                 bool labelFields = (renderSettings.FieldIndex >= 0 || useCustomLabels) && (renderSettings.MinRenderLabelZoom < 0 || scaleX > renderSettings.MinRenderLabelZoom);
                 bool renderDuplicateFields = (labelFields && renderSettings.RenderDuplicateFields);
@@ -10282,7 +10630,34 @@ namespace EGIS.ShapeFileLib
                                             Point[] pts;
 
                                             
-                                            if (useCustomRenderSettings)
+                                            if (useCustomSelectionSettings && recordSelected[index])
+                                            {
+                                                Color customColor = (paintCount == 0) ? customSelectionSettings.GetOutlineColor(index) : customSelectionSettings.GetFillColor(index);
+                                                if (customColor.ToArgb() != currentPenColor.ToArgb())
+                                                {
+                                                    gdiplusPen = new Pen(customColor, penWidth);
+                                                    currentPenColor = customColor;
+                                                    gdiplusPen.EndCap = renderSettings.LineEndCap;// System.Drawing.Drawing2D.LineCap.Round;
+                                                    gdiplusPen.StartCap = renderSettings.LineStartCap;// System.Drawing.Drawing2D.LineCap.Round;
+                                                    gdiplusPen.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
+                                                    if (renderSettings.LineType == LineType.Solid)
+                                                    {
+                                                        gdiplusPen.DashStyle = renderSettings.LineDashStyle;
+                                                        selectPen.DashStyle = renderSettings.LineDashStyle;
+                                                    }
+                                                }
+
+                                                if (useCustomRenderSettings)
+                                                {
+                                                    if (drawArrows)
+                                                    {
+                                                        arrowPen = new Pen(customRenderSettings.GetRecordDirectionArrowColor(index), arrowWidth);
+                                                        arrowLength = renderSettings.PointSize;
+                                                        arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(arrowLength, arrowLength);
+                                                    }
+                                                }
+                                            }
+                                            else if (useCustomRenderSettings)
                                             {
                                                 Color customColor = (paintCount == 0) ? customRenderSettings.GetRecordOutlineColor(index) : customRenderSettings.GetRecordFillColor(index);
                                                 if (customColor.ToArgb() != currentPenColor.ToArgb())
