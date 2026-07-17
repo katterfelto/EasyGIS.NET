@@ -130,5 +130,15 @@ namespace EGIS.ShapeFileLib
 		{
 			return renderSettings.DrawDirectionArrows ? 1 : 0;
 		}
+
+        /// <summary>
+        /// Returns the ArrowColor to use when rendering the specified shape
+        /// </summary>
+        /// <param name="recordNumber">zero-based record number of the shape</param>
+        /// <returns></returns>
+        public Color GetRecordDirectionArrowColor(int recordNumber)
+        {
+            return this.renderSettings.FillColor;
+        }
 	}
 }

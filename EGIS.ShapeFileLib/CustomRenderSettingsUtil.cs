@@ -263,6 +263,11 @@ namespace EGIS.ShapeFileLib
             return 0;
         }
 
+        public Color GetRecordDirectionArrowColor(int recordNumber)
+        {
+            throw new NotImplementedException();
+        }
+
         #endregion
     }
 
@@ -322,10 +327,14 @@ namespace EGIS.ShapeFileLib
             get { throw new NotImplementedException("The method or operation is not implemented."); }
         }
 
-
         public int GetDirection(int recordNumber)
         {
             return 0;
+        }
+
+        public Color GetRecordDirectionArrowColor(int recordNumber)
+        {
+            throw new NotImplementedException();
         }
 
         #endregion
