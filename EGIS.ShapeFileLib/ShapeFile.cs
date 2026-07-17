@@ -3803,6 +3803,12 @@ namespace EGIS.ShapeFileLib
             Color currentFontColor = renderSettings.FontColor;
             bool useCustomFontColor = customRenderSettings != null;
             float emSize = g.DpiY * renderSettings.Font.Size / 72f;
+            ContentAlignment labelLocation = ContentAlignment.MiddleCenter; // use default location
+            if (customRenderSettings != null)
+            {
+                labelLocation = customRenderSettings.LabelLocation;
+            }
+            int x0, y0;
 
             for (int n = 0; n < count; n++)
             {
@@ -3812,8 +3818,67 @@ namespace EGIS.ShapeFileLib
                 if (!string.IsNullOrEmpty(strLabel))
                 {
                     SizeF labelSize = g.MeasureString(strLabel, renderSettings.Font);
-                    int x0 = renderPtObjList[n].offX;
-                    int y0 = renderPtObjList[n].offY;
+                    switch (labelLocation)
+                    {
+                        case ContentAlignment.BottomLeft:
+                            {
+                                x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                y0 = -renderPtObjList[n].offY;
+                                break;
+                            }
+                        case ContentAlignment.BottomRight:
+                            {
+                                x0 = renderPtObjList[n].offX;
+                                y0 = -renderPtObjList[n].offY;
+                                break;
+                            }
+
+                        case ContentAlignment.BottomCenter:
+                            {
+                                x0 = -(int)(labelSize.Width / 2);
+                                y0 = -renderPtObjList[n].offY;
+                                break;
+                            }
+                        case ContentAlignment.MiddleLeft:
+                            {
+                                x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                y0 = -(int)(labelSize.Height / 2);
+                                break;
+                            }
+                        case ContentAlignment.MiddleRight:
+                            {
+                                x0 = renderPtObjList[n].offX;
+                                y0 = -(int)(labelSize.Height / 2);
+                                break;
+                            }
+
+                        case ContentAlignment.TopCenter:
+                            {
+                                x0 = -(int)(labelSize.Width / 2);
+                                y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                break;
+                            }
+                        case ContentAlignment.TopLeft:
+                            {
+                                x0 = -renderPtObjList[n].offX - (int)labelSize.Width;
+                                y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                break;
+                            }
+                        case ContentAlignment.TopRight:
+                            {
+                                x0 = renderPtObjList[n].offX;
+                                y0 = renderPtObjList[n].offY - (int)labelSize.Height;
+                                break;
+                            }
+
+                        case ContentAlignment.MiddleCenter:
+                        default:
+                            {
+                                x0 = renderPtObjList[n].offX;
+                                y0 = renderPtObjList[n].offY;
+                                break;
+                            }
+                    }
                     if (labelPlacementMap.addLabelToMap(Point.Round(renderPtObjList[n].Pt), x0, y0, (int)Math.Round(labelSize.Width * ssm), (int)Math.Round(labelSize.Height * ssm)))
                     {
                         if (useCustomFontColor)

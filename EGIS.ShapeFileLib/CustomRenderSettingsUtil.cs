@@ -268,6 +268,11 @@ namespace EGIS.ShapeFileLib
             throw new NotImplementedException();
         }
 
+        public ContentAlignment LabelLocation
+        {
+            get { throw new Exception("The method or operation is not implemented."); }
+        }
+
         #endregion
     }
 
@@ -335,6 +340,11 @@ namespace EGIS.ShapeFileLib
         public Color GetRecordDirectionArrowColor(int recordNumber)
         {
             throw new NotImplementedException();
+        }
+
+        public ContentAlignment LabelLocation
+        {
+            get { throw new Exception("The method or operation is not implemented."); }
         }
 
         #endregion
